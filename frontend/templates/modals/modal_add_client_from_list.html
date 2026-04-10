@@ -1,0 +1,296 @@
+<div class="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity z-40 flex items-center justify-center animate-fade-in"
+    id="add-from-list-modal-backdrop">
+    
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden z-50 transform transition-all min-h-[60vh] max-h-[80vh] ">
+        <div class="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center sticky top-0">
+            <h3 class="text-base sm:text-lg font-bold text-gray-800">
+                <i class="fa-solid fa-list text-blue-500 mr-2"></i> Listas
+            </h3>
+            <button onclick="document.getElementById('modal-container').innerHTML = ''" 
+                    class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fa-solid fa-xmark text-lg sm:text-xl"></i>
+            </button>
+        </div>
+        <div class="mx-6 my-3 sm:px-6 max-h-[60vh] overflow-y-auto">
+            <!-- Loading -->
+            <div id="list-loading" class="text-center py-8">
+                <div class="inline-block">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-blue-500 mb-2"></i>
+                    <p class="text-sm text-gray-600">Cargando listas...</p>
+                </div>
+            </div>
+            
+            <!-- Lists Selection -->
+            <div id="lists-selection" class="hidden space-y-2">
+
+                <div id="address-lists-container" class="space-y-3">
+                    <!-- Loaded via JavaScript -->
+                </div>
+            </div>
+            <!-- Error -->
+            <div id="list-error" class="hidden bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 py-3 text-xs sm:text-sm">
+                <i class="fa-solid fa-circle-exclamation mr-2"></i>
+                <span id="list-error-text"></span>
+            </div>
+            <!-- Action Buttons -->
+            <div id="action-buttons" class="hidden mt-6 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-gray-100">
+                <button type="button" onclick="document.getElementById('modal-container').innerHTML = ''"
+                        class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    Cancelar
+                </button>
+                <button type="button" id="add-ips-btn" onclick="addSelectedIps()"
+                        class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                    Agregar IPs Seleccionadas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedListName = null;
+let existingIps = new Set();
+let selectedIps = new Map(); // Changed to Map to store {ip: {ip, comment}}
+
+// Load address lists immediately when modal is injected
+function loadAddressLists() {
+    const listsContainer = document.getElementById('address-lists-container');
+    const listsSelection = document.getElementById('lists-selection');
+    const listLoading = document.getElementById('list-loading');
+    const error = document.getElementById('list-error');
+    
+    selectedListName = null;
+    selectedIps.clear();
+    
+    listLoading.classList.remove('hidden');
+    listsSelection.classList.add('hidden');
+    error.classList.add('hidden');
+    
+    console.log('Iniciando carga de listas de direcciones...');
+    
+    // Get existing IPs first
+    fetch('/api/views/existing-ips')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.ips) {
+                existingIps = new Set(data.ips);
+                console.log('IPs existentes cargadas:', data.ips);
+            }
+            return fetch('/api/views/address-lists-summary');
+        })
+        .then(res => {
+            console.log('Response status:', res.status);
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            return res.json();
+        })
+        .then(data => {
+            console.log('Datos recibidos:', data);
+            listLoading.classList.add('hidden');
+            
+            if (data.success && data.lists && data.lists.length > 0) {
+                listsContainer.innerHTML = '';
+                data.lists.forEach((list, index) => {
+                    const listId = `list-${index}`;
+                    const ipContainerId = `ips-${index}`;
+                    
+                    // Create list item
+                    const listItem = document.createElement('div');
+                    listItem.className = 'border border-gray-300 rounded-lg overflow-hidden';
+                    
+                    // List header
+                    const header = document.createElement('div');
+                    header.className = 'bg-gray-50 p-3 cursor-pointer hover:bg-blue-50 transition-colors flex items-center justify-between';
+                    header.onclick = (e) => {
+                        if (e.target.closest('input[type="checkbox"]')) return; // Don't toggle if clicking on checkbox
+                        const container = document.getElementById(ipContainerId);
+                        const icon = header.querySelector('.toggle-icon');
+                        container.classList.toggle('hidden');
+                        icon.classList.toggle('fa-chevron-down');
+                        icon.classList.toggle('fa-chevron-up');
+                    };
+                    
+                    const headerLeft = document.createElement('div');
+                    headerLeft.className = 'flex items-center flex-1';
+                    
+                    const chevron = document.createElement('i');
+                    chevron.className = 'fa-solid fa-chevron-down toggle-icon text-gray-400 mr-2 text-xs';
+                    
+                    const listCheckbox = document.createElement('input');
+                    listCheckbox.type = 'checkbox';
+                    listCheckbox.id = listId;
+                    listCheckbox.className = 'h-4 w-4 text-blue-600 cursor-pointer';
+                    
+                    const label = document.createElement('label');
+                    label.htmlFor = listId;
+                    label.className = 'ml-3 flex-1 font-medium text-gray-800 cursor-pointer';
+                    label.textContent = list.name;
+                    
+                    headerLeft.appendChild(chevron);
+                    headerLeft.appendChild(listCheckbox);
+                    headerLeft.appendChild(label);
+                    
+                    const countSpan = document.createElement('span');
+                    countSpan.className = 'bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded';
+                    countSpan.textContent = `${list.count} IP${list.count !== 1 ? 's' : ''}`;
+                    
+                    header.appendChild(headerLeft);
+                    header.appendChild(countSpan);
+                    
+                    // IPs container (initially hidden)
+                    const ipsContainer = document.createElement('div');
+                    ipsContainer.id = ipContainerId;
+                    ipsContainer.className = 'hidden bg-white border-t border-gray-200';
+                    
+                    // Add IPs
+                    const addresses = list.addresses || [];
+                    const ipCheckboxes = [];
+                    
+                    addresses.forEach(addressItem => {
+                        // Handle both old format (string) and new format (object with ip and comment)
+                        const ip = typeof addressItem === 'string' ? addressItem : addressItem.ip;
+                        const comment = typeof addressItem === 'string' ? '' : (addressItem.comment || '');
+                        const isDuplicate = existingIps.has(ip);
+                        
+                        const ipLabel = document.createElement('label');
+                        ipLabel.className = `flex items-center p-3 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-100 ${
+                            isDuplicate ? 'bg-red-200 opacity-60 hover:bg-red-300' : ''
+                        }`;
+                        
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = ip;
+                        checkbox.dataset.comment = comment; // Store comment as data attribute
+                        checkbox.disabled = isDuplicate;
+                        checkbox.className = 'h-4 w-4 text-blue-600 cursor-pointer ml-8';
+                        checkbox.onchange = (e) => {
+                            if (e.target.checked) {
+                                selectedIps.set(ip, {ip: ip, comment: comment});
+                            } else {
+                                selectedIps.delete(ip);
+                            }
+                            // Update list checkbox state
+                            const checkedCount = ipCheckboxes.filter(cb => cb.checked && !cb.disabled).length;
+                            const selectableCount = ipCheckboxes.filter(cb => !cb.disabled).length;
+                            listCheckbox.checked = checkedCount > 0 && checkedCount === selectableCount;
+                            listCheckbox.indeterminate = checkedCount > 0 && checkedCount < selectableCount;
+                            updateAddButton();
+                        };
+                        
+                        ipCheckboxes.push(checkbox);
+                        
+                        const ipSpan = document.createElement('span');
+                        ipSpan.className = 'ml-3 flex-1 font-mono text-sm text-gray-800';
+                        ipSpan.textContent = ip;
+                        
+                        ipLabel.appendChild(checkbox);
+                        ipLabel.appendChild(ipSpan);
+                        
+                        // Show comment if available
+                        if (comment) {
+                            const commentSpan = document.createElement('span');
+                            commentSpan.className = 'text-xs text-gray-500 italic ml-2';
+                            commentSpan.textContent = `${comment}`;
+                            ipLabel.appendChild(commentSpan);
+                        }
+                        ipsContainer.appendChild(ipLabel);
+                    });
+                    
+                    // List checkbox: select/deselect all IPs
+                    listCheckbox.onchange = (e) => {
+                        const isChecked = e.target.checked;
+                        ipCheckboxes.forEach(checkbox => {
+                            if (!checkbox.disabled) {
+                                checkbox.checked = isChecked;
+                                const ip = checkbox.value;
+                                const comment = checkbox.dataset.comment;
+                                if (isChecked) {
+                                    selectedIps.set(ip, {ip: ip, comment: comment});
+                                } else {
+                                    selectedIps.delete(ip);
+                                }
+                            }
+                        });
+                        listCheckbox.indeterminate = false;
+                        updateAddButton();
+                    };
+                    
+                    listItem.appendChild(header);
+                    listItem.appendChild(ipsContainer);
+                    listsContainer.appendChild(listItem);
+                });
+                listsSelection.classList.remove('hidden');
+                document.getElementById('action-buttons').classList.remove('hidden');
+            } else {
+                error.classList.remove('hidden');
+                const errorMsg = data.error || 'No hay listas de direcciones disponibles';
+                console.log('Error:', errorMsg);
+                document.getElementById('list-error-text').textContent = errorMsg;
+            }
+        })
+        .catch(err => {
+            console.error('Error al cargar listas:', err);
+            listLoading.classList.add('hidden');
+            error.classList.remove('hidden');
+            document.getElementById('list-error-text').textContent = 'Error al cargar las listas: ' + err.message;
+        });
+}
+
+function updateAddButton() {
+    const btn = document.getElementById('add-ips-btn');
+    const hasSelection = selectedIps.size > 0;
+    btn.disabled = !hasSelection;
+    btn.classList.toggle('bg-gray-400', !hasSelection);
+    btn.classList.toggle('cursor-not-allowed', !hasSelection);
+    btn.classList.toggle('bg-blue-600', hasSelection);
+    btn.classList.toggle('hover:bg-blue-700', hasSelection);
+}
+
+function addSelectedIps() {
+    if (selectedIps.size === 0) {
+        alert('Por favor selecciona al menos una IP');
+        return;
+    }
+    
+    // Convert Map to array of objects with ip and comment
+    const ipsData = Array.from(selectedIps.values()).map(item => ({
+        ip: item.ip,
+        nombre: item.comment || item.ip // Use comment as name, fallback to IP
+    }));
+    
+    const btn = document.getElementById('add-ips-btn');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Agregando...';
+    
+    const formData = new FormData();
+    formData.append('ips', JSON.stringify(ipsData));
+    
+    fetch('/api/clients/bulk-add', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = 'Agregar IPs Seleccionadas';
+        
+        if (data.success) {
+            alert(`✓ ${data.message}`);
+            document.getElementById('modal-container').innerHTML = '';
+            htmx.ajax('GET', '/api/views/clients', '#main-content');
+        } else {
+            alert(`✗ Error: ${data.message}`);
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = 'Agregar IPs Seleccionadas';
+        alert('Error: ' + err.message);
+    });
+}
+
+// Execute immediately - not waiting for DOMContentLoaded
+loadAddressLists();
+</script>

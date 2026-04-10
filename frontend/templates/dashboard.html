@@ -1,0 +1,416 @@
+<div class="space-y-6">
+	{% if message %}
+	<div class="bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-3 text-sm">
+		{{ message }}
+	</div>
+	{% endif %}
+
+	<!-- SECTION: METRICS -->
+	<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
+			<p class="text-xs uppercase tracking-wide text-gray-500">Hosts registrados</p>
+			<p id="metric-total-hosts" class="text-2xl sm:text-3xl font-bold text-gray-800 mt-2">{{ total_hosts }}</p>
+		</div>
+		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
+			<p class="text-xs uppercase tracking-wide text-gray-500">Hosts activos</p>
+			<p id="metric-hosts-activos" class="text-2xl sm:text-3xl font-bold text-green-700 mt-2">{{ hosts_activos }}</p>
+		</div>
+		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
+			<p class="text-xs uppercase tracking-wide text-gray-500">Hosts inactivos</p>
+			<p id="metric-hosts-inactivos" class="text-2xl sm:text-3xl font-bold text-amber-700 mt-2">{{ hosts_inactivos }}</p>
+		</div>
+		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
+			<p class="text-xs uppercase tracking-wide text-gray-500">Tráfico (7 días)</p>
+			<p id="metric-traffic-7d" class="text-2xl sm:text-3xl font-bold text-blue-700 mt-2">{{ (total_7d_descarga + total_7d_subida) | format_bytes }}</p>
+		</div>
+	</div>
+
+	<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
+		<!-- TRAFFIC CHART -->
+		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
+			<h3 class="text-base sm:text-lg font-semibold text-gray-800">Últimas 24 horas</h3>
+			<div class="mt-1 space-y-2 text-xs sm:text-sm">
+				<div class="flex justify-between">
+					<span class="text-gray-600">Descarga</span>
+				<span id="metric-24h-descarga" class="font-semibold text-gray-900">{{ total_24h_descarga | format_bytes }}</span>
+			</div>
+			<div class="flex justify-between">
+				<span class="text-gray-600">Subida</span>
+				<span id="metric-24h-subida" class="font-semibold text-gray-900">{{ total_24h_subida | format_bytes }}</span>
+				</div>
+			</div>
+			<!-- Traffic consumption chart -->
+			<div class="mt-1">
+				<canvas id="trafficChart24h" class="w-full"></canvas>
+			</div>
+		</div>
+		<!-- GENERAL METRICS DASHBOARD -->
+		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
+			<h3 class="text-base sm:text-lg font-semibold text-gray-800">Resumen General</h3>
+			<div class="mt-4 grid grid-cols-2 gap-3 text-xs sm:text-sm">
+				<div class="border-l-4 border-blue-500 pl-3">
+					<p class="text-xs text-gray-500">Total Clientes</p>
+					<p id="summary-total-clientes" class="text-lg sm:text-xl font-bold text-gray-900">{{ total_hosts }}</p>
+				</div>
+				<div class="border-l-4 border-green-500 pl-3">
+					<p class="text-xs text-gray-500">Activos</p>
+					<p id="summary-activos" class="text-lg sm:text-xl font-bold text-green-600">{{ hosts_activos }}</p>
+				</div>
+				<div class="border-l-4 border-amber-500 pl-3">
+					<p class="text-xs text-gray-500">Inactivos</p>
+					<p id="summary-inactivos" class="text-lg sm:text-xl font-bold text-amber-600">{{ hosts_inactivos }}</p>
+				</div>
+				<div class="border-l-4 border-purple-500 pl-3">
+					<p class="text-xs text-gray-500">Descarga</p>
+					<p id="summary-desc" class="text-base sm:text-lg font-bold text-gray-900">{{ total_all_descarga | format_bytes }}</p>
+				</div>
+				<div class="border-l-4 border-cyan-500 pl-3">
+					<p class="text-xs text-gray-500">Subida</p>
+					<p id="summary-subida" class="text-base sm:text-lg font-bold text-gray-900">{{ total_all_subida | format_bytes }}</p>
+				</div>
+				<div class="border-l-4 border-indigo-500 pl-3">
+					<p class="text-xs text-gray-500">Total</p>
+					<p id="summary-total" class="text-base sm:text-lg font-bold text-gray-900">{{ (total_all_descarga + total_all_subida) | format_bytes }}</p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+		<div class="px-4 sm:px-6 py-4 border-b border-gray-100">
+			<h3 class="text-base sm:text-lg font-semibold text-gray-800">Top 5 hosts por consumo (7 días)</h3>
+		</div>
+		<table class="min-w-full divide-y divide-gray-200 text-sm">
+			<thead class="bg-gray-50">
+				<tr>
+					<th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Host</th>
+					<th class="hidden sm:table-cell px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Descarga</th>
+					<th class="hidden lg:table-cell px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Subida</th>
+					<th class="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
+				</tr>
+			</thead>
+			<tbody id="top-hosts-tbody" class="bg-white divide-y divide-gray-200">
+				{% if top_hosts %}
+					{% for host in top_hosts %}
+					<tr class="hover:bg-gray-50 transition-colors">
+						<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-gray-900">{{ host.nombre }}</td>
+					<td class="hidden sm:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-right text-gray-700">{{ host.descarga | format_bytes }}</td>
+					<td class="hidden lg:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-right text-gray-700">{{ host.subida | format_bytes }}</td>
+					<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-right font-semibold text-gray-900">{{ host.total | format_bytes }}</td>
+					</tr>
+					{% endfor %}
+				{% else %}
+					<tr>
+						<td colspan="4" class="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-gray-500">Todavía no hay registros de tráfico para mostrar.</td>
+					</tr>
+				{% endif %}
+			</tbody>
+		</table>
+	</div>
+
+	<script>
+	let trafficChart = null;
+	const CHART_UPDATE_INTERVAL = 5000; // Actualizar cada 5 segundos
+
+	// Inicializar gráfico de tráfico de 24 horas con actualización dinámica
+	async function initTrafficChart() {
+		const ctx = document.getElementById('trafficChart24h');
+		if (!ctx || typeof Chart === 'undefined') return;
+		
+		// Cargar datos iniciales
+		await updateChartData();
+		
+		// Actualizar cada 5 segundos
+		setInterval(updateChartData, CHART_UPDATE_INTERVAL);
+	}
+
+	async function updateChartData() {
+		try {
+			const response = await fetch('/api/traffic-data/24h');
+			const data = await response.json();
+			
+			const chartContainer = document.getElementById('trafficChart24h');
+			if (!chartContainer) return;
+			
+			// Convertir labels a Date objects
+			const dateLabels = data.labels.map(label => new Date(label));
+			
+			if (!trafficChart) {
+				// Crear gráfico por primera vez
+				const ctx = chartContainer.getContext('2d');
+				trafficChart = new Chart(ctx, {
+					type: 'line',
+					data: {
+						labels: dateLabels,
+						datasets: [
+							{
+								label: 'Tráfico Total (GB)',
+								data: data.total,
+								borderColor: 'rgb(34 197 94)',
+								backgroundColor: 'rgba(139, 92, 246, 0.1)',
+								borderWidth: 3,
+								fill: true,
+								tension: 0.4,
+								pointRadius: 3,
+								pointBackgroundColor: 'rgb(34 197 94)',
+								pointBorderColor: '#fff',
+								pointBorderWidth: 2,
+								pointHoverRadius: 4,
+								yAxisID: 'y'
+							}
+						]
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: true,
+						interaction: {
+							mode: 'index',
+							intersect: false
+						},
+						plugins: {
+							legend: {
+								display: true,
+								position: 'top',
+								labels: {
+									usePointStyle: true,
+									padding: 15,
+									font: { size: 12, weight: '500' },
+									color: '#6b7280'
+								}
+							},
+
+						},
+						scales: {
+							y: {
+								beginAtZero: true,
+								position: 'left',
+								title: {
+									display: true,
+									text: 'Tráfico (GB)',
+									font: { size: 12, weight: '500' }
+								},
+								grid: {
+									color: 'rgba(0, 0, 0, 0.05)',
+									drawBorder: true
+								},
+								ticks: {
+									callback: function(value) {
+										return value.toFixed(2) + ' GB';
+									},
+									font: { size: 11 }
+								}
+							},
+							x: {
+								type: 'time',
+								time: {
+									unit: 'hour',
+									displayFormats: {
+										hour: 'HH:mm'
+									}
+								},
+								grid: {
+									display: false,
+									drawBorder: true
+								},
+								ticks: {
+									font: { size: 11 },
+									maxRotation: 45,
+									minRotation: 45
+								}
+							}
+						}
+					}
+				});
+			} else {
+				// Actualizar datos del gráfico existente
+				// Verificar si el número de puntos cambió (nueva hora)
+				if (trafficChart.data.labels.length !== dateLabels.length) {
+					// Destruir y recrear el gráfico si cambió el número de horas
+					trafficChart.destroy();
+					trafficChart = null;
+					// Crear el gráfico nuevamente
+					const ctx = chartContainer.getContext('2d');
+					trafficChart = new Chart(ctx, {
+						type: 'line',
+						data: {
+							labels: dateLabels,
+							datasets: [
+								{
+									label: 'Tráfico Total (GB)',
+									data: data.total,
+									borderColor: 'rgb(34 197 94)',
+									backgroundColor: 'rgba(139, 92, 246, 0.1)',
+									borderWidth: 3,
+									fill: true,
+									tension: 0.4,
+									pointRadius: 5,
+									pointBackgroundColor: 'rgb(34 197 94)',
+									pointBorderColor: '#fff',
+									pointBorderWidth: 2,
+									pointHoverRadius: 7,
+									yAxisID: 'y'
+								}
+							]
+						},
+						options: {
+							responsive: true,
+							maintainAspectRatio: true,
+							interaction: {
+								mode: 'index',
+								intersect: false
+							},
+							plugins: {
+								legend: {
+									display: true,
+									position: 'top',
+									labels: {
+										usePointStyle: true,
+										padding: 15,
+										font: { size: 12, weight: '500' },
+										color: '#6b7280'
+									}
+								},
+								tooltip: {
+									backgroundColor: 'rgba(0, 0, 0, 0.8)',
+									padding: 12,
+									titleFont: { size: 14, weight: 'bold' },
+									bodyFont: { size: 13 },
+									borderColor: '#3b82f6',
+									borderWidth: 1,
+									displayColors: true,
+									callbacks: {
+										title: function(context) {
+											if (context.length > 0) {
+												const date = context[0].label;
+												return moment(date).format('DD/MM/YYYY HH:mm');
+											}
+											return '';
+										},
+										label: function(context) {
+											return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' GB';
+										}
+									}
+								}
+							},
+							scales: {
+								y: {
+									beginAtZero: true,
+									position: 'left',
+									title: {
+										display: true,
+										text: 'Tráfico (GB)',
+										font: { size: 12, weight: '500' }
+									},
+									grid: {
+										color: 'rgba(0, 0, 0, 0.05)',
+										drawBorder: true
+									},
+									ticks: {
+										callback: function(value) {
+											return value.toFixed(2) + ' GB';
+										},
+										font: { size: 11 }
+									}
+								},
+								x: {
+									type: 'time',
+									time: {
+										unit: 'hour',
+										displayFormats: {
+											hour: 'HH:mm'
+										}
+									},
+									grid: {
+										display: false,
+										drawBorder: true
+									},
+									ticks: {
+										font: { size: 11 },
+										maxRotation: 45,
+										minRotation: 45
+									}
+								}
+							}
+						}
+					});
+				} else {
+					// Solo actualizar los datos si el número de horas no cambió
+					trafficChart.data.labels = dateLabels;
+					trafficChart.data.datasets[0].data = data.total;
+					trafficChart.update('none'); // Actualizar sin animación
+				}
+			}
+		} catch (error) {
+			console.error('Error actualizando datos del gráfico:', error);
+		}
+	}
+	</script>
+	<script>
+	// Función para formatear bytes (debe coincidir con la del backend)
+	function formatBytes(bytes) {
+		if (bytes === null || bytes === 0) return "0.0 MB";
+		const mb = bytes / (1024 * 1024);
+		if (mb >= 1024) {
+			const gb = mb / 1024;
+			return gb.toFixed(2) + " GB";
+		} else {
+			return mb.toFixed(2) + " MB";
+		}
+	}
+
+	// Actualizar datos del dashboard
+	async function updateDashboardData() {
+		try {
+			const response = await fetch('/api/views/dashboard-data');
+			const data = await response.json();
+
+			// Actualizar métricas principales
+			document.getElementById('metric-total-hosts').textContent = data.total_hosts;
+			document.getElementById('metric-hosts-activos').textContent = data.hosts_activos;
+			document.getElementById('metric-hosts-inactivos').textContent = data.hosts_inactivos;
+			document.getElementById('metric-traffic-7d').textContent = formatBytes(data.total_7d_descarga + data.total_7d_subida);
+
+			// Actualizar datos de 24h
+			document.getElementById('metric-24h-descarga').textContent = formatBytes(data.total_24h_descarga);
+			document.getElementById('metric-24h-subida').textContent = formatBytes(data.total_24h_subida);
+
+			// Actualizar resumen general
+			document.getElementById('summary-total-clientes').textContent = data.total_hosts;
+			document.getElementById('summary-activos').textContent = data.hosts_activos;
+			document.getElementById('summary-inactivos').textContent = data.hosts_inactivos;
+			document.getElementById('summary-desc').textContent = formatBytes(data.total_all_descarga);
+			document.getElementById('summary-subida').textContent = formatBytes(data.total_all_subida);
+			document.getElementById('summary-total').textContent = formatBytes(data.total_all_descarga + data.total_all_subida);
+
+			// Actualizar tabla de top hosts
+			const tbody = document.getElementById('top-hosts-tbody');
+			if (data.top_hosts.length > 0) {
+				tbody.innerHTML = data.top_hosts.map(host => `
+					<tr class="hover:bg-gray-50 transition-colors">
+						<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-gray-900">${host.nombre}</td>
+						<td class="hidden sm:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-right text-gray-700">${formatBytes(host.descarga)}</td>
+						<td class="hidden lg:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-right text-gray-700">${formatBytes(host.subida)}</td>
+						<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-right font-semibold text-gray-900">${formatBytes(host.total)}</td>
+					</tr>
+				`).join('');
+			} else {
+				tbody.innerHTML = '<tr><td colspan="4" class="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-gray-500">Todavía no hay registros de tráfico para mostrar.</td></tr>';
+			}
+		} catch (error) {
+			console.error('Error actualizando datos del dashboard:', error);
+		}
+	}
+
+	// Actualizar datos cada 10 segundos
+	setInterval(updateDashboardData, 10000);
+
+	// Ejecutar gráfico inmediatamente
+	initTrafficChart();
+
+	// También ejecutar después de que HTMX actualice el contenido
+	document.addEventListener('htmx:afterSwap', function() {
+		trafficChart = null; // Resetear gráfico
+		setTimeout(initTrafficChart, 100);
+	});
+	</script>
+</div>

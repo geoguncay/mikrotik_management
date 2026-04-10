@@ -1,0 +1,116 @@
+<div class="space-y-6">
+	<div>
+		<h2 class="text-xl sm:text-2xl font-bold text-gray-800">Listas de Direcciones (Firewall)</h2>
+		<p class="text-xs sm:text-sm text-gray-500">Administra las listas de direcciones configuradas en tu RouterBoard.</p>
+	</div>
+
+	{% if error %}
+	<div class="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3 text-xs sm:text-sm">
+		<i class="fa-solid fa-circle-exclamation mr-2"></i>{{ error }}
+	</div>
+	{% endif %}
+
+	<!-- Summary metrics -->
+	<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+		<div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+			<p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Total de Listas</p>
+			<p class="text-2xl font-bold text-blue-600">{{ total_lists }}</p>
+		</div>
+		<div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+			<p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Total de Direcciones</p>
+			<p class="text-2xl font-bold text-green-600">{{ total_addresses }}</p>
+		</div>
+		<div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+			<p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Estado RB</p>
+			<p class="text-2xl font-bold text-purple-600">
+				<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500 mr-2" style="display: inline-block;"></span>
+				Conectado
+			</p>
+		</div>
+	</div>
+
+	<!-- Address Lists -->
+	<div class="space-y-4">
+		{% if address_lists %}
+			{% for list_item in address_lists %}
+			<div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+				<!-- List Header -->
+				<div class="bg-gradient-to-r from-blue-50 to-blue-100 px-4 sm:px-6 py-4 border-b border-gray-200">
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-3">
+							<i class="fa-solid fa-shield text-blue-600 text-lg"></i>
+							<div>
+								<h3 class="text-base sm:text-lg font-semibold text-gray-800">{{ list_item.name }}</h3>
+								<p class="text-xs text-gray-500">{{ list_item.addresses | length }} dirección(es)</p>
+							</div>
+						</div>
+						<div class="text-right">
+							<span class="inline-block px-3 py-1 bg-blue-200 text-blue-800 text-xs font-medium rounded-full">
+								{{ list_item.addresses | length }}
+							</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Addresses Table -->
+				<div class="overflow-x-auto">
+					<table class="w-full divide-y divide-gray-200 text-sm">
+						<thead class="bg-gray-50">
+							<tr>
+								<th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Dirección/Red</th>
+								<th class="hidden md:table-cell px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Comentario</th>
+								<th class="px-4 sm:px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-gray-200">
+							{% for addr in list_item.addresses %}
+							<tr class="hover:bg-gray-50 transition-colors">
+								<td class="px-4 sm:px-6 py-3 whitespace-nowrap">
+									<div class="flex items-center gap-2">
+										<code class="text-xs sm:text-sm font-mono bg-gray-100 px-2 py-1 rounded">
+											{{ addr.address }}
+										</code>
+									</div>
+								</td>
+								<td class="hidden md:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-gray-600">
+									{% if addr.comment %}
+										{{ addr.comment }}
+									{% else %}
+										<span class="text-gray-400 italic">Sin comentario</span>
+									{% endif %}
+								</td>
+								<td class="px-4 sm:px-6 py-3 text-center">
+									{% if addr.disabled %}
+										<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded">
+											<i class="fa-solid fa-circle-xmark"></i>
+											Deshabilitada
+										</span>
+									{% else %}
+										<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded">
+											<i class="fa-solid fa-circle-check"></i>
+											Activa
+										</span>
+									{% endif %}
+								</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+			{% endfor %}
+		{% else %}
+			<div class="bg-white rounded-lg shadow-sm border border-gray-100 p-12 text-center">
+				<i class="fa-solid fa-inbox text-5xl text-gray-300 mb-3"></i>
+				<p class="text-gray-600 font-medium mb-1">No hay listas de direcciones configuradas</p>
+				<p class="text-xs text-gray-500">Las listas de direcciones que crees en tu RouterBoard aparecerán aquí.</p>
+			</div>
+		{% endif %}
+	</div>
+
+	<!-- Info Box -->
+	<div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs sm:text-sm text-blue-800">
+		<i class="fa-solid fa-circle-info mr-2"></i>
+		<strong>Tip:</strong> Las listas de direcciones se usan comúnmente en reglas de firewall para bloquear o permitir tráfico desde direcciones IP específicas.
+	</div>
+</div>

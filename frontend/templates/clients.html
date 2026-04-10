@@ -1,0 +1,227 @@
+<div class="animate-fade-in">
+    <!-- Horizontal general metrics -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Total Clientes</p>
+            <p class="text-2xl font-bold text-blue-600">{{ total_hosts }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Activos</p>
+            <p class="text-2xl font-bold text-green-600">{{ hosts_activos }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Inactivos</p>
+            <p class="text-2xl font-bold text-amber-600">{{ hosts_inactivos }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Total Subida</p>
+            <p class="text-xl font-bold text-cyan-600">{{ total_period_subida | format_bytes }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Total Descarga</p>
+            <p class="text-xl font-bold text-purple-600">{{ total_period_descarga | format_bytes }}</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Total</p>
+            <p class="text-xl font-bold text-indigo-600">{{ (total_period_descarga + total_period_subida) | format_bytes }}</p>
+        </div>
+    </div>
+
+    <!-- Period filter -->
+    <div class="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-wrap">
+        <span class="text-xs sm:text-sm font-medium text-gray-700">Mostrar consumo de:</span>
+        <div class="flex gap-1 flex-wrap">
+            <button hx-get="/api/views/clients?sort_by={{ sort_by }}&order={{ order }}&period=1h"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-lg transition-colors {% if period == '1h' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+                1h
+            </button>
+            <button hx-get="/api/views/clients?sort_by={{ sort_by }}&order={{ order }}&period=12h"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-lg transition-colors {% if period == '12h' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+                12h
+            </button>
+            <button hx-get="/api/views/clients?sort_by={{ sort_by }}&order={{ order }}&period=daily"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-lg transition-colors {% if period == 'daily' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+                Día
+            </button>
+            <button hx-get="/api/views/clients?sort_by={{ sort_by }}&order={{ order }}&period=weekly"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-lg transition-colors {% if period == 'weekly' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+                Semana
+            </button>
+            <button hx-get="/api/views/clients?sort_by={{ sort_by }}&order={{ order }}&period=monthly"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-lg transition-colors {% if period == 'monthly' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+                Mes
+            </button>
+            <button hx-get="/api/views/clients?sort_by={{ sort_by }}&order={{ order }}&period=yearly"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-lg transition-colors {% if period == 'yearly' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+                Año
+            </button>
+        </div>
+    </div>
+    <!-- Add Client -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+        <div>
+            <h2 class="text-xl sm:text-2xl font-bold text-gray-800">Clientes</h2>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <button hx-get="/api/views/modal_add_client" 
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML"
+                    class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center sm:justify-start">
+                <i class="fa-solid fa-user mr-2"></i> <span class="hidden sm:inline">Agregar un Cliente</span><span class="sm:hidden">Cliente</span>
+            </button>
+            <button hx-get="/api/views/modal_add_client_from_list" 
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML"
+                    class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center sm:justify-start">
+                <i class="fa-solid fa-list mr-2"></i> <span class="hidden sm:inline">Agregar desde la Lista</span><span class="sm:hidden">Lista</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Clients table -->
+    <div class="bg-white rounded-[<1>] shadow-sm border border-gray-100 overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        hx-get="/api/views/clients?sort_by=nombre&order={% if sort_by == 'nombre' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
+                        hx-target="#main-content"
+                        hx-swap="innerHTML">
+                        Cliente
+                        {% if sort_by == 'nombre' %}
+                            <i class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                        {% endif %}
+                    </th>
+                    <th scope="col" class="hidden md:table-cell px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        hx-get="/api/views/clients?sort_by=ip&order={% if sort_by == 'ip' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
+                        hx-target="#main-content"
+                        hx-swap="innerHTML">
+                        IP
+                        {% if sort_by == 'ip' %}
+                            <i class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                        {% endif %}
+                    </th>
+                    <th scope="col" class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th scope="col" class="hidden sm:table-cell px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        hx-get="/api/views/clients?sort_by=descarga&order={% if sort_by == 'descarga' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
+                        hx-target="#main-content"
+                        hx-swap="innerHTML">
+                        Desc
+                        {% if sort_by == 'descarga' %}
+                            <i class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                        {% endif %}
+                    </th>
+                    <th scope="col" class="hidden lg:table-cell px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        hx-get="/api/views/clients?sort_by=subida&order={% if sort_by == 'subida' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
+                        hx-target="#main-content"
+                        hx-swap="innerHTML">
+                        Subida
+                        {% if sort_by == 'subida' %}
+                            <i class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                        {% endif %}
+                    </th>
+                    <th scope="col" class="px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        hx-get="/api/views/clients?sort_by=total&order={% if sort_by == 'total' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
+                        hx-target="#main-content"
+                        hx-swap="innerHTML">
+                        Total
+                        {% if sort_by == 'total' %}
+                            <i class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                        {% endif %}
+                    </th>
+                    <th scope="col" class="px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                
+                {% if clientes %}
+                    {% for cliente in clientes %}
+                    <tr id="cliente-{{ cliente.id }}" class="hover:bg-gray-50 transition-colors">
+                        <td class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
+                            <div class="flex items-center gap-1.5">
+                                <div class="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs sm:text-sm">
+                                    {{ cliente.nombre[0]|upper }}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-xs sm:text-sm font-medium text-gray-900 truncate">{{ cliente.nombre }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="hidden md:table-cell px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
+                            <div class="text-xs sm:text-sm text-gray-900 font-mono bg-gray-100 px-2 py-1 rounded inline-block">{{ cliente.ip_address }}</div>
+                        </td>
+                        <td class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
+                            {% if cliente.activo %}
+                                </span>  
+                                <span class="px-2 py-2 inline-flex rounded-full bg-green-100">
+                                <span class="relative flex h-3 w-3">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                </span> 
+                            {% else %}
+                                </span>  
+                                <span class="px-2 py-2 inline-flex rounded-full bg-red-100">
+                                <span class="relative flex h-3 w-3">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                </span> 
+                            {% endif %}
+                        </td>
+                        <td class="hidden sm:table-cell px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right">
+                            <div class="text-xs sm:text-sm text-gray-900">{{ cliente.descarga | format_bytes }}</div>
+                        </td>
+                        <td class="hidden lg:table-cell px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right">
+                            <div class="text-xs sm:text-sm text-gray-900">{{ cliente.subida | format_bytes }}</div>
+                        </td>
+                        <td class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right">
+                            <div class="text-xs sm:text-sm font-semibold text-gray-900">{{ cliente.total | format_bytes }}</div>
+                        </td>
+                        <td class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex items-center justify-end gap-2">
+                                <button hx-get="/api/views/modal_edit_client/{{ cliente.id }}" 
+                                        hx-target="#modal-container"
+                                        hx-swap="innerHTML"
+                                        class="text-blue-400 hover:text-blue-600 transition-colors" title="Editar">
+                                    <i class="fa-solid fa-edit"></i>
+                                </button>
+                                <button hx-delete="/api/clients/{{ cliente.id }}?sort_by={{ sort_by }}&order={{ order }}&period={{ period }}"
+                                        hx-confirm="¿Despedir este cliente?"
+                                        hx-target="#cliente-{{ cliente.id }}"
+                                        hx-swap="outerHTML swap:1s settle:1s"
+                                        class="text-red-400 hover:text-red-600 transition-colors" title="Eliminar">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-16 text-center text-gray-500">
+                            <i class="fa-solid fa-network-wired text-4xl mb-4 text-gray-300"></i>
+                            <p class="text-lg font-medium text-gray-700">No hay clientes registrados.</p>
+                            <p class="text-sm mt-1">Haz clic en "Agregar Cliente" para comenzar a leer el tráfico de tu RB5009.</p>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div id="modal-container"></div>
+
+</div>

@@ -1,0 +1,72 @@
+<div class="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity z-40 flex items-center justify-center animate-fade-in"
+    id="add-host-modal-backdrop">
+    
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden z-50 transform transition-all">
+        <div class="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="text-base sm:text-lg font-bold text-gray-800">
+                <i class="fa-solid fa-router text-blue-500 mr-2"></i> Agregar Cliente
+            </h3>
+            <button onclick="document.getElementById('modal-container').innerHTML = ''" 
+                    class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fa-solid fa-xmark text-lg sm:text-xl"></i>
+            </button>
+        </div>
+
+        <div class="px-4 sm:px-6 py-4 space-y-4">
+            <!-- Error message -->
+            {% if error %}
+            <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 sm:px-4 py-3 text-xs sm:text-sm animate-shake">
+                <div class="flex items-start gap-2">
+                    <i class="fa-solid fa-circle-exclamation text-red-600 mt-0.5 flex-shrink-0 text-sm"></i>
+                    <div>
+                        <h3 class="font-semibold">Error</h3>
+                        <p class="mt-1">{{ error }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Form -->
+            <form hx-post="/api/clients" 
+                hx-target="#main-content" 
+                hx-swap="innerHTML"
+                class="space-y-4">
+                
+                <div>
+                    <label for="nombre" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Nombre del Cliente</label>
+                    <input type="text" name="nombre" id="nombre" required placeholder="Ej: Juan Perez - Casa 1"
+                        value="{{ nombre or '' }}"
+                        class="w-full px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                </div>
+
+                <div>
+                    <label for="ip_address" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Dirección IP</label>
+                    <input type="text" name="ip_address" id="ip_address" required placeholder="Ej: 192.168.88.50"
+                        value="{{ ip_address or '' }}"
+                        pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$" title="Debe ser una dirección IP válida (ej. 192.168.1.10)"
+                        class="w-full px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-mono">
+                </div>
+
+                <div class="flex items-center mt-4">
+                    <input type="checkbox" name="activo" id="activo" {% if not error or activo == 'on' %}checked{% endif %}
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer">
+                    <label for="activo" class="ml-2 block text-xs sm:text-sm text-gray-700 cursor-pointer">
+                        Iniciar monitoreo inmediatamente
+                    </label>
+                </div>
+
+                <div class="mt-6 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-gray-100">
+                    <button type="button" onclick="document.getElementById('modal-container').innerHTML = ''"
+                            class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none transition-colors shadow-sm">
+                        Guardar Cliente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+

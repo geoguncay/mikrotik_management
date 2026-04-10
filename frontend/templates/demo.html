@@ -1,0 +1,151 @@
+<div class="animate-fade-in">
+    
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+            <h2 class="text-xl sm:text-2xl font-bold text-gray-800">Modo Demostración</h2>
+            <p class="text-xs sm:text-sm text-gray-500">Genera clientes de prueba con datos simulados para probar el sistema.</p>
+        </div>
+        
+        <button hx-post="/api/demo/generate"
+                hx-confirm="¿Crear 5 clientes de demostración con datos aleatorios?"
+                hx-target="#main-content"
+                hx-swap="innerHTML"
+                class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center sm:justify-start">
+            <i class="fa-solid fa-plus mr-2"></i> <span class="hidden sm:inline">Generar Demo</span><span class="sm:hidden">Generar</span>
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Clientes Demo</p>
+                    <p class="text-2xl sm:text-3xl font-bold text-gray-800 mt-2">{{ demo_count }}</p>
+                </div>
+                <div class="text-3xl sm:text-4xl text-blue-400 flex-shrink-0">
+                    <i class="fa-solid fa-flask-vial"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Total Clientes</p>
+                    <p class="text-2xl sm:text-3xl font-bold text-gray-800 mt-2">{{ total_count }}</p>
+                </div>
+                <div class="text-3xl sm:text-4xl text-green-400 flex-shrink-0">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Registros</p>
+                    <p class="text-2xl sm:text-3xl font-bold text-gray-800 mt-2">{{ records_count }}</p>
+                </div>
+                <div class="text-3xl sm:text-4xl text-purple-400 flex-shrink-0">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Information -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-6">
+        <div class="flex items-start gap-3">
+            <i class="fa-solid fa-info-circle text-blue-600 mt-0.5 flex-shrink-0"></i>
+            <div class="text-xs sm:text-sm text-blue-800">
+                <p class="font-semibold">¿Qué es Demo?</p>
+                <p class="mt-1">Genera clientes de demostración (identificados con prefijo "DEMO_") con datos aleatorios para probar el sistema sin conectar a un MikroTik real. Los datos se regeneran cada vez.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo clients table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h3 class="text-base sm:text-lg font-semibold text-gray-800">Clientes de Demostración</h3>
+        </div>
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
+                    <th scope="col" class="hidden md:table-cell px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">IP</th>
+                    <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th scope="col" class="hidden sm:table-cell px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Consumo</th>
+                    <th scope="col" class="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% if demo_clientes %}
+                    {% for cliente in demo_clientes %}
+                    <tr id="cliente-{{ cliente.id }}" class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 sm:px-6 py-3 whitespace-nowrap">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-xs sm:text-sm">
+                                    <i class="fa-solid fa-flask-vial"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-xs sm:text-sm font-medium text-gray-900 truncate">{{ cliente.nombre }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="hidden md:table-cell px-4 sm:px-6 py-3 whitespace-nowrap">
+                            <div class="text-xs sm:text-sm text-gray-900 font-mono bg-gray-100 px-2 py-1 rounded inline-block">{{ cliente.ip_address }}</div>
+                        </td>
+                        <td class="px-4 sm:px-6 py-3 whitespace-nowrap">
+                            {% if cliente.activo %}
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                    Act
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                    Inact
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="hidden sm:table-cell px-4 sm:px-6 py-3 whitespace-nowrap text-right">
+                            <div class="text-xs sm:text-sm font-semibold text-gray-900">{{ (cliente.consumo / 1073741824) | round(2) }} GB</div>
+                            <div class="text-xs text-gray-500">{{ (cliente.consumo / 1048576) | round(0) | int }} MB</div>
+                        </td>
+                        <td class="px-4 sm:px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
+                            <button hx-delete="/api/demo/clientes/{{ cliente.id }}"
+                                    hx-confirm="¿Eliminar este cliente de demostración?"
+                                    hx-target="#cliente-{{ cliente.id }}"
+                                    hx-swap="outerHTML swap:1s settle:1s"
+                                    class="text-red-400 hover:text-red-600 transition-colors" title="Eliminar">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="px-4 sm:px-6 py-12 sm:py-16 text-center text-gray-500">
+                            <i class="fa-solid fa-flask text-3xl sm:text-4xl mb-3 sm:mb-4 text-gray-300"></i>
+                            <p class="text-base sm:text-lg font-medium text-gray-700">No hay clientes de demostración.</p>
+                            <p class="text-xs sm:text-sm mt-1">Haz clic en "Generar Demo" para crear clientes de prueba con datos simulados.</p>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Botón limpiar todo -->
+    {% if demo_clientes %}
+    <div class="mt-6 flex justify-end">
+        <button hx-post="/api/demo/clear"
+                hx-confirm="¿Eliminar todos los clientes de demostración? Esta acción no se puede deshacer."
+                hx-target="#main-content"
+                hx-swap="innerHTML"
+                class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center sm:justify-start">
+            <i class="fa-solid fa-trash mr-2"></i> <span class="hidden sm:inline">Limpiar Todo</span><span class="sm:hidden">Limpiar</span>
+        </button>
+    </div>
+    {% endif %}
+
+</div>

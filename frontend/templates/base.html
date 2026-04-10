@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Counter | MikroTik Admin</title>
+    <link sizes="180x180" href="/static/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1/dist/chartjs-adapter-moment.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Hamburger Menu Button */
+        .hamburger {
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .hamburger span {
+            width: 25px;
+            height: 3px;
+            background-color: #374151;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(10px, 10px);
+        }
+
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -7px);
+        }
+
+        /* Sidebar Responsive */
+        aside {
+            transition: transform 0.3s ease, width 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        aside.collapsed {
+            width: 80px;
+        }
+
+        aside.collapsed .sidebar-text {
+            display: none;
+        }
+
+        aside.collapsed .sidebar-icon {
+            margin-right: 0;
+        }
+
+        /* Mobile Styles */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+
+            aside {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 256px;
+                height: 100vh;
+                z-index: 40;
+                transform: translateX(-100%);
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            }
+
+            aside.active {
+                transform: translateX(0);
+                z-index: 50;
+            }
+
+            aside.collapsed {
+                width: 256px;
+            }
+
+            /* Overlay backdrop */
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 30;
+            }
+
+            .sidebar-overlay.active {
+                display: block;
+            }
+
+            .flex-1 {
+                width: 100%;
+            }
+        }
+
+        /* Desktop Styles */
+        @media (min-width: 769px) {
+            aside {
+                position: relative;
+                transform: translateX(0);
+                width: 256px;
+            }
+
+            aside.collapsed {
+                width: 80px;
+            }
+
+            body {
+                flex-direction: row;
+            }
+
+            .sidebar-overlay {
+                display: none !important;
+            }
+        }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        wisp: '#0f172a', /* Un azul oscuro elegante para el sidebar */
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script>
+        // Cargar el dashboard por defecto cuando la página se carga
+        document.addEventListener('DOMContentLoaded', function() {
+            htmx.ajax('GET', '/api/views/dashboard', '#main-content');
+
+            // Toggle Hamburger Menu
+            const hamburger = document.querySelector('.hamburger');
+            const sidebar = document.querySelector('aside');
+            const overlay = document.querySelector('.sidebar-overlay');
+
+            hamburger?.addEventListener('click', () => {
+                const isMobile = window.innerWidth <= 768;
+                
+                if (isMobile) {
+                    // Mobile: overlay behavior
+                    hamburger.classList.toggle('active');
+                    sidebar.classList.toggle('active');
+                    overlay.classList.toggle('active');
+                } else {
+                    // Desktop: collapse behavior
+                    sidebar.classList.toggle('collapsed');
+                    hamburger.classList.toggle('active');
+                    // Save collapsed state
+                    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+                }
+            });
+
+            // Close sidebar when clicking overlay (mobile only)
+            overlay?.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            });
+
+            // Close sidebar when clicking menu items (mobile only)
+            document.querySelectorAll('nav button').forEach(button => {
+                button.addEventListener('click', () => {
+                    if (window.innerWidth <= 768) {
+                        hamburger.classList.remove('active');
+                        sidebar.classList.remove('active');
+                        overlay.classList.remove('active');
+                    }
+                });
+            });
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 768) {
+                    // Switch to desktop mode
+                    hamburger.classList.remove('active');
+                    sidebar.classList.remove('active');
+                    overlay.classList.remove('active');
+                    // Restore collapsed state if it was saved
+                    const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                    if (isCollapsed) {
+                        sidebar.classList.add('collapsed');
+                        hamburger.classList.add('active');
+                    }
+                } else {
+                    // Switch to mobile mode
+                    sidebar.classList.remove('collapsed');
+                    hamburger.classList.remove('active');
+                }
+            });
+
+            // Restore collapsed state on page load (desktop only)
+            if (window.innerWidth > 768) {
+                const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                if (isCollapsed) {
+                    sidebar.classList.add('collapsed');
+                    hamburger.classList.add('active');
+                }
+            }
+        });
+    </script>
+</head>
+<body class="bg-gray-100 font-sans antialiased text-gray-900 flex h-screen overflow-hidden">
+
+    <!-- Sidebar Overlay Backdrop -->
+    <div class="sidebar-overlay"></div>
+
+    <aside class="w-64 bg-wisp text-white flex flex-col h-full shadow-xl z-20" id="sidebar">
+        <div class="p-4 md:p-6 flex items-center border-b border-gray-800">
+            <i class="fa-solid fa-network-wired text-blue-400 text-2xl mr-3 sidebar-icon flex-shrink-0"></i>
+            <h1 class="text-lg md:text-xl font-bold tracking-wider sidebar-text">Traffic<span class="text-blue-400">Counter</span></h1>
+        </div>
+
+        <nav class="flex-1 px-4 py-4 md:py-6 space-y-2">
+            <button hx-get="/api/views/dashboard"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
+                    title="Dashboard">
+                <i class="fa-solid fa-chart-pie w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
+                <span class="sidebar-text">Panel de Control</span>
+            </button>
+
+            <button hx-get="/api/views/clients"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
+                    title="Clientes">
+                <i class="fa-solid fa-users w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
+                <span class="sidebar-text">Clientes</span>
+            </button>
+
+            <button hx-get="/api/views/configuration"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
+                    title="Configuración">
+                <i class="fa-solid fa-server w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
+                <span class="sidebar-text">Configuración</span>
+            </button>
+
+            <button hx-get="/api/views/address-lists"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
+                    title="Listas de Direcciones">
+                <i class="fa-solid fa-shield w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
+                <span class="sidebar-text">Listas Firewall</span>
+            </button>
+
+            <button hx-get="/api/views/demo"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-700 hover:text-blue-300 transition-colors focus:outline-none cursor-pointer"
+                    title="Demo">
+                <i class="fa-solid fa-flask w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
+                <span class="sidebar-text">Demo</span>
+            </button>
+        </nav>
+
+        <div class="p-3 md:p-4 border-t border-gray-800 bg-gray-900">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-8 md:w-9 h-8 md:h-9 rounded-full bg-blue-600 flex items-center justify-center font-bold shadow-inner flex-shrink-0">
+                        <i class="fa-solid fa-user-shield text-xs md:text-sm"></i>
+                    </div>
+                    <div class="ml-3 flex flex-col sidebar-text">
+                        <span class="text-xs md:text-sm font-semibold">Admin WISP</span>
+                        <span class="text-xs text-green-400">Online</span>
+                    </div>
+                </div>
+                <a href="/logout" class="text-gray-400 hover:text-red-400 transition-colors flex-shrink-0 sidebar-text" title="Cerrar Sesión">
+                    <i class="fa-solid fa-right-from-bracket text-base md:text-lg"></i>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col h-full relative">
+
+        <header class="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-8 z-10 border-b border-gray-200">
+            <div class="flex items-center gap-4">
+                <button class="hamburger flex-shrink-0" aria-label="Menú">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <h2 class="text-base md:text-lg font-semibold text-gray-700">Sistema de Monitoreo de Trafico Mikrotik</h2>
+            </div>
+            
+            <div class="flex items-center space-x-2 text-xs md:text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
+                <span class="relative flex h-3 w-3">
+                <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                <span id="device-name" class="hidden sm:inline">Sin conexión</span>
+                <span id="device-name-mobile" class="sm:hidden">Sin conexión</span>
+            </div>
+        </header>
+
+        <main id="main-content" class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-gray-50">
+            <div class="flex flex-col items-center justify-center h-full text-gray-400">
+                <div class="text-center">
+                    <div class="animate-spin mb-3">
+                        <i class="fa-solid fa-spinner text-2xl text-blue-500"></i>
+                    </div>
+                    <p>Cargando dashboard...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Monitor MikroTik connection status
+        async function updateConnectionStatus() {
+            try {
+                const response = await fetch('/api/connection-status');
+                const data = await response.json();
+                
+                const statusPing = document.getElementById('status-ping');
+                const statusDot = document.getElementById('status-dot');
+                const deviceName = document.getElementById('device-name');
+                const deviceNameMobile = document.getElementById('device-name-mobile');
+                
+                if (data.connected) {
+                    // Connection is active
+                    statusPing.classList.remove('bg-red-400');
+                    statusPing.classList.add('bg-green-400');
+                    statusDot.classList.remove('bg-red-500');
+                    statusDot.classList.add('bg-green-500');
+                    deviceName.textContent = data.device_name || 'RB5009';
+                    deviceNameMobile.textContent = data.device_name || 'RB5009';
+                } else {
+                    // Connection failed
+                    statusPing.classList.remove('bg-green-400', 'animate-ping');
+                    statusPing.classList.add('bg-red-400');
+                    statusDot.classList.remove('bg-green-500');
+                    statusDot.classList.add('bg-red-500');
+                    deviceName.textContent = 'Sin conexión';
+                    deviceNameMobile.textContent = 'Sin conexión';
+                }
+            } catch (error) {
+                console.error('Error checking connection status:', error);
+                // Keep previous state on fetch error
+            }
+        }
+        
+        // Check connection status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateConnectionStatus();
+            // Update every 30 seconds
+            setInterval(updateConnectionStatus, 30000);
+        });
+    </script>
+
+</body>
+</html>

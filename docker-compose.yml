@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:////app/data/traffic_counter.db
+      - MK_IP=${MK_IP:-172.17.0.1}
+      - MK_USER=${MK_USER:-api_user}
+      - MK_PASS=${MK_PASS:-contraseña}
+      - INTERVALO_MINUTOS=${INTERVALO_MINUTOS:-5}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
