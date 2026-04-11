@@ -37,6 +37,30 @@ templates = Jinja2Templates(directory=str(frontend_dir / "templates"))
 router = APIRouter(prefix="", tags=["Clients"])
 
 
+# ==================== HELPER FUNCTIONS ====================
+
+def is_client_connected_to_router(ip_address: str) -> bool:
+    """Check if a client IP has an active queue in MikroTik"""
+    try:
+        connection = routeros_api.RouterOsApiPool(
+            CONFIG["MK_IP"],
+            username=CONFIG["MK_USER"],
+            password=CONFIG["MK_PASS"],
+            plaintext_login=True,
+        )
+        api = connection.get_api()
+        list_queues = api.get_resource('/queue/simple')
+        queues = list_queues.get()
+        
+        # Check if IP has an active queue
+        is_connected = any(ip_address in q.get('target', '') for q in queues)
+        connection.disconnect()
+        return is_connected
+    except Exception as e:
+        logger.error(f"Error checking connection status for {ip_address}: {e}")
+        return False
+
+# HTMX endpoint to add a new client, with validation and error handling, returning a modal with success or error message
 @router.post("/clients", response_class=HTMLResponse)
 async def add_client(
     request: Request,
@@ -90,7 +114,7 @@ async def add_client(
     </div>
     """
 
-
+# HTMX endpoint to delete a client and return empty response to remove the row from the table with hx-swap="outerHTML"
 @router.delete("/clients/{client_id}", response_class=HTMLResponse)
 async def delete_client(request: Request, client_id: int, sort_by: str = "nombre", order: str = "asc", period: str = "daily"):
     """Delete host from monitoring"""
@@ -108,6 +132,56 @@ async def delete_client(request: Request, client_id: int, sort_by: str = "nombre
         db.close()
         logger.error(f"Error deleting client {client_id}: {str(e)}")
         return f"<!-- Error eliminating client: {str(e)} -->"
+
+
+# HTMX fragment to get real-time connection status for a client, to be used in the clients table and updated every 30 seconds
+@router.get("/views/client_status/{client_id}", response_class=HTMLResponse)
+async def get_client_status(request: Request, client_id: int):
+    """Get real-time connection status for a client"""
+    db = SessionLocal()
+    client = db.query(Host).filter(Host.id == client_id).first()
+    db.close()
+    
+    if not client:
+        return ""
+    
+    # Check connection status against MikroTik
+    is_connected = is_client_connected_to_router(client.ip_address)
+    
+    if is_connected:
+        return f"""
+        <td id="status-{client_id}" class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap" 
+            hx-get="/api/views/client_status/{client_id}" 
+            hx-trigger="every 30s" 
+            hx-swap="outerHTML">
+            <span class="inline-flex items-center gap-2">
+                <span class="px-2 py-2 inline-flex rounded-full bg-green-100">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                </span>
+                <!-- <span class="text-green-700 font-medium text-xs">Conectado</span> -->
+            </span>
+        </td>
+        """
+    else:
+        return f"""
+        <td id="status-{client_id}" class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap" 
+            hx-get="/api/views/client_status/{client_id}" 
+            hx-trigger="every 30s" 
+            hx-swap="outerHTML">
+            <span class="inline-flex items-center gap-2">
+                <span class="px-2 py-2 inline-flex rounded-full bg-red-100">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                </span>
+                <!-- <span class="text-red-700 font-medium text-xs">Desconectado</span> -->
+            </span>
+        </td>
+        """
 
 
 @router.get("/views/modal_edit_client/{client_id}", response_class=HTMLResponse)
