@@ -140,8 +140,7 @@ mikrotik_management/
 │       │   ├── clients.py      # Endpoints de gestión de clientes
 │       │   ├── config.py       # Endpoints de configuración
 │       │   ├── traffic.py      # Endpoints de datos de tráfico
-│       │   ├── views.py        # Endpoints de vistas HTML
-│       │   └── demo.py         # Endpoints de demo
+│       │   └── views.py        # Endpoints de vistas HTML
 │       ├── models.py           # Modelos de base de datos
 │       ├── database.py         # Configuración de BD
 │       ├── config.py           # Configuración general
@@ -172,7 +171,6 @@ mikrotik_management/
 - `GET /clients` - Página de gestión de clientes
 - `GET /address-lists` - Listas de direcciones de firewall
 - `GET /config` - Página de configuración
-- `GET /demo` - Modo demostración
 
 ### Clientes
 - `GET /api/clients` - Listar clientes con filtros
@@ -313,17 +311,6 @@ ports:
 
 # O en desarrollo:
 uvicorn backend.app.main:app --host 0.0.0.0 --port 8080
-```
-
-## 📊 Datos de Demo
-
-Para probar sin MikroTik real:
-
-```bash
-# Generar datos de demostración
-python generate_demo.py
-
-# Acceder a /demo en la aplicación
 ```
 
 ## 📝 Logs

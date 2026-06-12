@@ -7,6 +7,9 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/es/).
 
 ## [Sin Lanzamiento] - Cambios Pendientes
 
+### Eliminado
+- 🗑️ **Modo Demo:** Eliminado por completo (rutas API, plantillas, scripts de generación de datos de prueba y documentación).
+
 ### Planeado
 - [ ] Autenticación de usuarios (login/logout)
 - [ ] Soporte para múltiples dispositivos MikroTik

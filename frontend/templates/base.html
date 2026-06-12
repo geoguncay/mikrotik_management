@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1/dist/chartjs-adapter-moment.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <style>
         /* Hamburger Menu Button */
         .hamburger {
@@ -126,7 +127,7 @@
             }
         }
     </style>
-    
+
     <script>
         tailwind.config = {
             theme: {
@@ -141,7 +142,7 @@
 
     <script>
         // Cargar el dashboard por defecto cuando la página se carga
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             htmx.ajax('GET', '/api/views/dashboard', '#main-content');
 
             // Toggle Hamburger Menu
@@ -151,7 +152,7 @@
 
             hamburger?.addEventListener('click', () => {
                 const isMobile = window.innerWidth <= 768;
-                
+
                 if (isMobile) {
                     // Mobile: overlay behavior
                     hamburger.classList.toggle('active');
@@ -215,6 +216,7 @@
         });
     </script>
 </head>
+
 <body class="bg-gray-100 font-sans antialiased text-gray-900 flex h-screen overflow-hidden">
 
     <!-- Sidebar Overlay Backdrop -->
@@ -222,61 +224,46 @@
 
     <aside class="w-64 bg-wisp text-white flex flex-col h-full shadow-xl z-20" id="sidebar">
         <div class="p-4 md:p-6 flex items-center border-b border-gray-800">
-            <i class="fa-solid fa-network-wired text-blue-400 text-2xl mr-3 sidebar-icon flex-shrink-0"></i>
-            <h1 class="text-lg md:text-xl font-bold tracking-wider sidebar-text">Traffic<span class="text-blue-400">Counter</span></h1>
+            <!-- <i class="fa-solid fa-network-wired text-blue-400 text-2xl mr-3 sidebar-icon flex-shrink-0"></i> -->
+            <h1 class="text-lg md:text-xl font-bold tracking-wider sidebar-text">MK<span
+                    class="text-blue-400">Tool</span></h1>
         </div>
 
         <nav class="flex-1 px-4 py-4 md:py-6 space-y-2">
-            <button hx-get="/api/views/dashboard"
-                    hx-target="#main-content"
-                    hx-swap="innerHTML"
-                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
-                    title="Dashboard">
+            <button hx-get="/api/views/dashboard" hx-target="#main-content" hx-swap="innerHTML"
+                class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
+                title="Dashboard">
                 <i class="fa-solid fa-chart-pie w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
                 <span class="sidebar-text">Panel de Control</span>
             </button>
 
-            <button hx-get="/api/views/clients"
-                    hx-target="#main-content"
-                    hx-swap="innerHTML"
-                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
-                    title="Clientes">
+            <button hx-get="/api/views/clients" hx-target="#main-content" hx-swap="innerHTML"
+                class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
+                title="Clientes">
                 <i class="fa-solid fa-users w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
                 <span class="sidebar-text">Clientes</span>
             </button>
 
-            <button hx-get="/api/views/configuration"
-                    hx-target="#main-content"
-                    hx-swap="innerHTML"
-                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
-                    title="Configuración">
+            <button hx-get="/api/views/configuration" hx-target="#main-content" hx-swap="innerHTML"
+                class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
+                title="Configuración">
                 <i class="fa-solid fa-server w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
                 <span class="sidebar-text">Configuración</span>
             </button>
 
-            <button hx-get="/api/views/address-lists"
-                    hx-target="#main-content"
-                    hx-swap="innerHTML"
-                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
-                    title="Listas de Direcciones">
+            <button hx-get="/api/views/address-lists" hx-target="#main-content" hx-swap="innerHTML"
+                class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
+                title="Listas de Direcciones">
                 <i class="fa-solid fa-shield w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
-                <span class="sidebar-text">Listas Firewall</span>
-            </button>
-
-            <button hx-get="/api/views/demo"
-                    hx-target="#main-content"
-                    hx-swap="innerHTML"
-                    class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-700 hover:text-blue-300 transition-colors focus:outline-none cursor-pointer"
-                    title="Demo">
-                <i class="fa-solid fa-flask w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
-                <span class="sidebar-text">Demo</span>
+                <span class="sidebar-text">Address Lists</span>
             </button>
         </nav>
 
         <div class="p-3 md:p-4 border-t border-gray-800 bg-gray-900">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="w-8 md:w-9 h-8 md:h-9 rounded-full bg-blue-600 flex items-center justify-center font-bold shadow-inner flex-shrink-0">
+                    <div
+                        class="w-8 md:w-9 h-8 md:h-9 rounded-full bg-blue-600 flex items-center justify-center font-bold shadow-inner flex-shrink-0">
                         <i class="fa-solid fa-user-shield text-xs md:text-sm"></i>
                     </div>
                     <div class="ml-3 flex flex-col sidebar-text">
@@ -284,7 +271,8 @@
                         <span class="text-xs text-green-400">Online</span>
                     </div>
                 </div>
-                <a href="/logout" class="text-gray-400 hover:text-red-400 transition-colors flex-shrink-0 sidebar-text" title="Cerrar Sesión">
+                <a href="/logout" class="text-gray-400 hover:text-red-400 transition-colors flex-shrink-0 sidebar-text"
+                    title="Cerrar Sesión">
                     <i class="fa-solid fa-right-from-bracket text-base md:text-lg"></i>
                 </a>
             </div>
@@ -293,20 +281,24 @@
 
     <div class="flex-1 flex flex-col h-full relative">
 
-        <header class="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-8 z-10 border-b border-gray-200">
+        <header
+            class="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-8 z-10 border-b border-gray-200">
             <div class="flex items-center gap-4">
                 <button class="hamburger flex-shrink-0" aria-label="Menú">
                     <span></span>
                     <span></span>
                     <span></span>
                 </button>
-                <h2 class="text-base md:text-lg font-semibold text-gray-700">Sistema de Monitoreo de Trafico Mikrotik</h2>
+                <h2 class="text-base md:text-lg font-semibold text-gray-700">Sistema de Monitoreo Mikrotik
+                </h2>
             </div>
-            
-            <div class="flex items-center space-x-2 text-xs md:text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
+
+            <div
+                class="flex items-center space-x-2 text-xs md:text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
                 <span class="relative flex h-3 w-3">
-                <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    <span id="status-ping"
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                 </span>
                 <span id="device-name" class="hidden sm:inline">Sin conexión</span>
                 <span id="device-name-mobile" class="sm:hidden">Sin conexión</span>
@@ -331,12 +323,12 @@
             try {
                 const response = await fetch('/api/connection-status');
                 const data = await response.json();
-                
+
                 const statusPing = document.getElementById('status-ping');
                 const statusDot = document.getElementById('status-dot');
                 const deviceName = document.getElementById('device-name');
                 const deviceNameMobile = document.getElementById('device-name-mobile');
-                
+
                 if (data.connected) {
                     // Connection is active
                     statusPing.classList.remove('bg-red-400');
@@ -359,9 +351,9 @@
                 // Keep previous state on fetch error
             }
         }
-        
+
         // Check connection status on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             updateConnectionStatus();
             // Update every 30 seconds
             setInterval(updateConnectionStatus, 30000);
@@ -369,4 +361,5 @@
     </script>
 
 </body>
+
 </html>

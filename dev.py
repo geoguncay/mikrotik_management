@@ -10,12 +10,6 @@ backend_path = Path(__file__).parent / "backend"
 sys.path.insert(0, str(backend_path))
 
 
-def setup_demo_data():
-    """Generate demo data"""
-    from generate_demo import populate_database
-    populate_database()
-
-
 def run_server(host: str = "127.0.0.1", port: int = 8000, reload: bool = True):
     """Run development server"""
     import uvicorn
@@ -93,7 +87,6 @@ MikroTik Traffic Counter - Development Utilities
 Usage: python dev.py [command] [options]
 
 Commands:
-    demo         Generate demo data
     run          Run development server (port 8000)
     run:prod     Run production server
     clean        Remove database, cache files, and temporary data
@@ -103,7 +96,6 @@ Options for clean:
     --env        Also remove the virtual environment
 
 Examples:
-    python dev.py demo              # Generate demo data
     python dev.py run               # Start dev server with auto-reload
     python dev.py run:prod          # Start prod server
     python dev.py clean             # Clean database and cache files
@@ -114,9 +106,7 @@ Examples:
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "help"
 
-    if cmd == "demo":
-        setup_demo_data()
-    elif cmd == "run":
+    if cmd == "run":
         run_server(reload=True)
     elif cmd == "run:prod":
         run_server(host="0.0.0.0", reload=False)

@@ -374,48 +374,6 @@ async def view_configuration(request: Request):
     )
 
 
-@router.get("/demo", response_class=HTMLResponse)
-async def view_demo(request: Request):
-    """HTMX fragment: demo data management page"""
-    db = SessionLocal()
-    
-    # Count total clients and demo clients
-    total_clients = db.query(Host).count()
-    demo_clients_list = db.query(Host).filter(Host.nombre.like("DEMO_%")).all()
-    demo_count = len(demo_clients_list)
-    records_count = db.query(RegistroTrafico).count()
-    
-    # Calculate consumption for each demo client
-    demo_clients_with_consumption = []
-    for client in demo_clients_list:
-        consumption = db.query(
-            func.sum(RegistroTrafico.bytes_descarga + RegistroTrafico.bytes_subida).label('total')
-        ).filter(RegistroTrafico.host_id == client.id).first()
-        
-        total_consumption = consumption.total or 0
-        
-        demo_clients_with_consumption.append({
-            'id': client.id,
-            'nombre': client.nombre,
-            'ip_address': client.ip_address,
-            'activo': client.activo,
-            'consumo': total_consumption
-        })
-    
-    db.close()
-    
-    return templates.TemplateResponse(
-        request,
-        "demo.html",
-        {
-            "demo_clientes": demo_clients_with_consumption,
-            "demo_count": demo_count,
-            "total_count": total_clients,
-            "records_count": records_count
-        }
-    )
-
-
 @router.get("/address-lists", response_class=HTMLResponse)
 async def view_address_lists(request: Request):
     """HTMX fragment: Address Lists from MikroTik"""
