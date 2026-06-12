@@ -178,12 +178,12 @@ async def view_clients(request: Request):
     # Pass the clients to the template to render them
     return templates.TemplateResponse(request, "clients.html", {"clientes": clients_db})
 
-@app.get("/api/views/modal_add_config", response_class=HTMLResponse)
-async def view_modal_add_config(request: Request):
+@app.get("/api/views/add_config", response_class=HTMLResponse)
+async def view_add_config(request: Request):
     """
     Returns the empty modal form HTML.
     """
-    return templates.TemplateResponse(request, "modals/modal_add_config.html")
+    return templates.TemplateResponse(request, "modals/add_config.html")
 
 
 @app.get("/api/views/router", response_class=HTMLResponse)

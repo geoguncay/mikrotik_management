@@ -106,7 +106,7 @@ async def add_client(
             routers = db.query(Router).all()
             db.close()
             # Return modal with error message
-            return templates.TemplateResponse(request, "modals/modal_add_client.html", {
+            return templates.TemplateResponse(request, "modals/add_client.html", {
                 "error": f"La dirección IP {ip_address} ya está siendo monitoreada por {ip_exists.nombre}",
                 "nombre": nombre,
                 "ip_address": ip_address,
@@ -213,8 +213,8 @@ async def get_client_status(request: Request, client_id: int):
         """
 
 
-@router.get("/views/modal_edit_client/{client_id}", response_class=HTMLResponse)
-async def view_modal_edit(request: Request, client_id: int):
+@router.get("/views/edit_client/{client_id}", response_class=HTMLResponse)
+async def view_edit_client(request: Request, client_id: int):
     """HTMX fragment: edit host modal form"""
     from ..models import Router
     db = SessionLocal()
@@ -223,13 +223,13 @@ async def view_modal_edit(request: Request, client_id: int):
     db.close()
     
     if not client:
-        return templates.TemplateResponse(request, "modals/modal_edit_client.html", {
+        return templates.TemplateResponse(request, "modals/edit_client.html", {
             "error": "Cliente no encontrado",
             "client_id": client_id,
             "routers": routers
         })
     
-    return templates.TemplateResponse(request, "modals/modal_edit_client.html", {
+    return templates.TemplateResponse(request, "modals/edit_client.html", {
         "client_id": client_id,
         "nombre": client.nombre,
         "ip_address": client.ip_address,
@@ -262,7 +262,7 @@ async def update_client(
         client = db.query(Host).filter(Host.id == client_id).first()
         if not client:
             db.close()
-            return templates.TemplateResponse(request, "modals/modal_edit_client.html", {
+            return templates.TemplateResponse(request, "modals/edit_client.html", {
                 "error": "Cliente no encontrado",
                 "client_id": client_id,
                 "routers": routers
@@ -276,7 +276,7 @@ async def update_client(
             ).first()
             if ip_exists:
                 db.close()
-                return templates.TemplateResponse(request, "modals/modal_edit_client.html", {
+                return templates.TemplateResponse(request, "modals/edit_client.html", {
                     "error": f"La dirección IP {ip_address} ya está siendo monitoreada por {ip_exists.nombre}",
                     "client_id": client_id,
                     "nombre": nombre,
@@ -375,7 +375,7 @@ async def update_client(
     
     except Exception as e:
         db.close()
-        return templates.TemplateResponse(request, "modals/modal_edit_client.html", {
+        return templates.TemplateResponse(request, "modals/edit_client.html", {
             "error": f"Error al actualizar cliente: {str(e)}",
             "client_id": client_id,
             "nombre": nombre,

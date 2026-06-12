@@ -1,7 +1,7 @@
 """View routes for rendering templates and HTML fragments"""
 
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -264,6 +264,10 @@ async def view_clients(request: Request, sort_by: str = "nombre", order: str = "
         clients_with_consumption.sort(key=lambda x: x['nombre'].lower(), reverse=reverse)
     elif sort_by == "ip":
         clients_with_consumption.sort(key=lambda x: x['ip_address'], reverse=reverse)
+    elif sort_by == "estado":
+        clients_with_consumption.sort(key=lambda x: x['activo'], reverse=reverse)
+    elif sort_by == "router":
+        clients_with_consumption.sort(key=lambda x: x['router_nombre'].lower(), reverse=reverse)
     elif sort_by == "descarga":
         clients_with_consumption.sort(key=lambda x: x['descarga'], reverse=reverse)
     elif sort_by == "subida":
@@ -313,32 +317,32 @@ async def view_clients(request: Request, sort_by: str = "nombre", order: str = "
     )
 
 
-@router.get("/modal_add_config", response_class=HTMLResponse)
-async def view_modal_add(request: Request):
+@router.get("/add_config", response_class=HTMLResponse)
+async def view_add_config(request: Request):
     """HTMX fragment: add host modal form"""
     from ..models import Router
     db = SessionLocal()
     try:
         routers = db.query(Router).all()
-        return templates.TemplateResponse(request, "modals/modal_add_client.html", {"routers": routers})
+        return templates.TemplateResponse(request, "modals/add_client.html", {"routers": routers})
     finally:
         db.close()
 
 
-@router.get("/modal_add_client", response_class=HTMLResponse)
-async def view_modal_add_client(request: Request):
+@router.get("/add_client", response_class=HTMLResponse)
+async def view_add_client(request: Request):
     """HTMX fragment: add client modal form (manual)"""
     from ..models import Router
     db = SessionLocal()
     try:
         routers = db.query(Router).all()
-        return templates.TemplateResponse(request, "modals/modal_add_client.html", {"routers": routers})
+        return templates.TemplateResponse(request, "modals/add_client.html", {"routers": routers})
     finally:
         db.close()
 
 
-@router.get("/modal_add_client_from_list", response_class=HTMLResponse)
-async def view_modal_add_client_from_list(request: Request):
+@router.get("/add_client_from_list", response_class=HTMLResponse)
+async def view_add_client_from_list(request: Request):
     """HTMX fragment: add client from list modal"""
     from ..models import Router
     db = SessionLocal()
@@ -346,21 +350,21 @@ async def view_modal_add_client_from_list(request: Request):
         routers = db.query(Router).all()
         return templates.TemplateResponse(
             request,
-            "modals/modal_add_client_from_list.html",
+            "modals/add_client_from_list.html",
             {"routers": routers}
         )
     finally:
         db.close()
 
 
-@router.get("/modal_add_router", response_class=HTMLResponse)
-async def view_modal_add_router(request: Request):
+@router.get("/add_router", response_class=HTMLResponse)
+async def view_add_router(request: Request):
     """HTMX fragment: add router modal form"""
     return templates.TemplateResponse(request, "modals/add_router.html")
 
 
-@router.get("/modal_edit_router/{router_id}", response_class=HTMLResponse)
-async def view_modal_edit_router(request: Request, router_id: int):
+@router.get("/edit_router/{router_id}", response_class=HTMLResponse)
+async def view_edit_router(request: Request, router_id: int):
     """HTMX fragment: edit router modal form"""
     from ..models import Router
     db = SessionLocal()
@@ -505,11 +509,25 @@ async def view_address_lists(request: Request, router_id: int = None):
                 }
             
             lists_dict[list_name]['addresses'].append({
+                'id': addr.get('id'),
                 'address': address,
                 'disabled': disabled,
                 'comment': comment
             })
         
+        # Sort addresses within each list numerically by IP address
+        import ipaddress
+        
+        def get_ip_sort_key(addr_dict):
+            addr_str = addr_dict.get('address', '')
+            try:
+                return (0, ipaddress.ip_network(addr_str, strict=False))
+            except Exception:
+                return (1, addr_str)
+                
+        for list_data in lists_dict.values():
+            list_data['addresses'] = sorted(list_data['addresses'], key=get_ip_sort_key)
+            
         # Convert to list and sort by name
         lists_display = sorted(lists_dict.values(), key=lambda x: x['name'])
         
@@ -641,6 +659,252 @@ async def get_address_lists_summary(router_id: int = None):
                 "lists": [],
                 "total": 0
             }
+        )
+    finally:
+        db.close()
+
+
+@router.get("/edit_address_list_entry", response_class=HTMLResponse)
+async def view_edit_address_list_entry(
+    request: Request,
+    router_id: int,
+    entry_id: str,
+    list_name: str,
+    address: str,
+    disabled: str = "false",
+    comment: str = ""
+):
+    """HTMX fragment: edit address list entry modal form"""
+    is_disabled = disabled.lower() == "true"
+    return templates.TemplateResponse(
+        request,
+        "modals/edit_address_list_entry.html",
+        {
+            "router_id": router_id,
+            "entry_id": entry_id,
+            "list_name": list_name,
+            "address": address,
+            "comment": comment,
+            "disabled": is_disabled,
+            "error": None
+        }
+    )
+
+
+@router.put("/address-list-entry", response_class=HTMLResponse)
+async def update_address_list_entry(
+    request: Request,
+    router_id: int = Form(...),
+    entry_id: str = Form(...),
+    list_name: str = Form(...),
+    address: str = Form(...),
+    comment: str = Form(""),
+    active: str = Form(None),
+):
+    """Update address list entry in MikroTik firewall"""
+    from ..models import Router
+    db = SessionLocal()
+    try:
+        router_obj = db.query(Router).filter(Router.id == router_id).first()
+        if not router_obj:
+            raise ValueError("Router no encontrado")
+            
+        connection = routeros_api.RouterOsApiPool(
+            router_obj.ip_address.strip(),
+            username=router_obj.usuario.strip(),
+            password=router_obj.password,
+            plaintext_login=True,
+        )
+        api = connection.get_api()
+        address_lists_resource = api.get_resource('/ip/firewall/address-list')
+        
+        # Checkbox "active" is "on" if checked, meaning disabled=False
+        disabled_val = 'false' if active == 'on' else 'true'
+        
+        # Update address list entry by id
+        address_lists_resource.set(
+            id=entry_id,
+            address=address.strip(),
+            comment=comment.strip(),
+            disabled=disabled_val
+        )
+        
+        connection.disconnect()
+        
+        # After successful update, reload the address lists view for this router
+        return await view_address_lists(request, router_id=router_id)
+        
+    except Exception as e:
+        logger.error(f"Error updating address list entry: {str(e)}")
+        # If there's an error, we return the modal template but with an error message
+        # We also need to set HTMX headers to retarget to modal-container
+        headers = {
+            "HX-Retarget": "#modal-container",
+            "HX-Reswap": "innerHTML"
+        }
+        is_disabled = active != 'on'
+        return templates.TemplateResponse(
+            request,
+            "modals/edit_address_list_entry.html",
+            {
+                "router_id": router_id,
+                "entry_id": entry_id,
+                "list_name": list_name,
+                "address": address,
+                "comment": comment,
+                "disabled": is_disabled,
+                "error": f"Error al actualizar: {str(e)}"
+            },
+            headers=headers
+        )
+    finally:
+        db.close()
+
+
+@router.post("/toggle-address-list-entry", response_class=HTMLResponse)
+async def toggle_address_list_entry(
+    request: Request,
+    router_id: int = Form(...),
+    entry_id: str = Form(...),
+    disabled: bool = Form(...),
+):
+    """Toggle the disabled state of an address list entry on MikroTik"""
+    from ..models import Router
+    db = SessionLocal()
+    try:
+        router_obj = db.query(Router).filter(Router.id == router_id).first()
+        if not router_obj:
+            raise ValueError("Router no encontrado")
+            
+        connection = routeros_api.RouterOsApiPool(
+            router_obj.ip_address.strip(),
+            username=router_obj.usuario.strip(),
+            password=router_obj.password,
+            plaintext_login=True,
+        )
+        api = connection.get_api()
+        address_lists_resource = api.get_resource('/ip/firewall/address-list')
+        
+        # Update the disabled attribute in MikroTik
+        disabled_str = 'true' if disabled else 'false'
+        address_lists_resource.set(
+            id=entry_id,
+            disabled=disabled_str
+        )
+        
+        connection.disconnect()
+        
+        # Return the updated status cell HTML for inline swap
+        safe_id = entry_id.replace('*', '_')
+        next_disabled_val = 'false' if disabled else 'true'
+        
+        if disabled:
+            # Entry is now disabled
+            return f"""
+            <td class="px-4 sm:px-6 py-3 text-center" id="status-cell-{safe_id}">
+                <button hx-post="/api/views/toggle-address-list-entry"
+                    hx-vals='{{"router_id": "{router_id}", "entry_id": "{entry_id}", "disabled": {next_disabled_val}}}'
+                    hx-target="#status-cell-{safe_id}"
+                    hx-swap="outerHTML"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-all duration-200 shadow-sm"
+                    title="Habilitar dirección">
+                    <i class="fa-solid fa-circle-xmark text-red-500"></i>
+                    <span>Deshabilitada</span>
+                </button>
+            </td>
+            """
+        else:
+            # Entry is now active
+            return f"""
+            <td class="px-4 sm:px-6 py-3 text-center" id="status-cell-{safe_id}">
+                <button hx-post="/api/views/toggle-address-list-entry"
+                    hx-vals='{{"router_id": "{router_id}", "entry_id": "{entry_id}", "disabled": {next_disabled_val}}}'
+                    hx-target="#status-cell-{safe_id}"
+                    hx-swap="outerHTML"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-all duration-200 shadow-sm"
+                    title="Deshabilitar dirección">
+                    <i class="fa-solid fa-circle-check text-green-500"></i>
+                    <span>Activa</span>
+                </button>
+            </td>
+            """
+            
+    except Exception as e:
+        logger.error(f"Error toggling address list entry: {str(e)}")
+        safe_id = entry_id.replace('*', '_')
+        current_disabled_val = 'true' if disabled else 'false'
+        badge_class = "bg-red-50 text-red-700 border-red-300" if disabled else "bg-green-50 text-green-700 border-green-300"
+        badge_text = "Deshabilitada" if disabled else "Activa"
+        badge_icon = "fa-circle-xmark text-red-500" if disabled else "fa-circle-check text-green-500"
+        
+        return f"""
+        <td class="px-4 sm:px-6 py-3 text-center" id="status-cell-{safe_id}">
+            <button hx-post="/api/views/toggle-address-list-entry"
+                hx-vals='{{"router_id": "{router_id}", "entry_id": "{entry_id}", "disabled": {current_disabled_val}}}'
+                hx-target="#status-cell-{safe_id}"
+                hx-swap="outerHTML"
+                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full {badge_class} border hover:opacity-90 transition-all duration-200 shadow-sm"
+                title="Error: {str(e)}. Clic para reintentar.">
+                <i class="fa-solid {badge_icon}"></i>
+                <span>{badge_text}</span>
+            </button>
+        </td>
+        """
+    finally:
+        db.close()
+
+
+@router.get("/filter_address_lists", response_class=HTMLResponse)
+async def view_filter_address_lists(request: Request, router_id: int):
+    """HTMX fragment: filter address lists visibility modal checklist"""
+    from ..models import Router
+    db = SessionLocal()
+    try:
+        router_obj = db.query(Router).filter(Router.id == router_id).first()
+        if not router_obj:
+            raise ValueError("Router no encontrado")
+            
+        connection = routeros_api.RouterOsApiPool(
+            router_obj.ip_address.strip(),
+            username=router_obj.usuario.strip(),
+            password=router_obj.password,
+            plaintext_login=True,
+        )
+        api = connection.get_api()
+        address_lists_resource = api.get_resource('/ip/firewall/address-list')
+        address_lists = address_lists_resource.get()
+        connection.disconnect()
+        
+        # Group addresses by list to get list names and address count
+        lists_dict = {}
+        total_addresses = len(address_lists)
+        for addr in address_lists:
+            list_name = addr.get('list', 'unknown')
+            if list_name not in lists_dict:
+                lists_dict[list_name] = 0
+            lists_dict[list_name] += 1
+            
+        # Convert to sorted list
+        lists_display = sorted([
+            {"name": name, "count": count}
+            for name, count in lists_dict.items()
+        ], key=lambda x: x['name'])
+        
+        return templates.TemplateResponse(
+            request,
+            "modals/filter_address_lists.html",
+            {
+                "lists": lists_display,
+                "total_lists": len(lists_display),
+                "total_addresses": total_addresses,
+                "router_id": router_id
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error loading filter lists modal: {str(e)}")
+        return HTMLResponse(
+            status_code=500,
+            content=f"<div class='p-4 text-red-500'>Error al conectar con el router: {str(e)}</div>"
         )
     finally:
         db.close()

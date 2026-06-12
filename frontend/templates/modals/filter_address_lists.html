@@ -1,0 +1,89 @@
+<div class="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity z-40 flex items-center justify-center animate-fade-in"
+    id="visibility-modal-backdrop">
+
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden z-50 transform transition-all animate-scale-in"
+        onClick="event.stopPropagation()">
+        <div class="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="text-base sm:text-lg font-bold text-gray-800">
+                <i class="fa-solid fa-list-check text-blue-500 mr-2"></i> Filtrar Listas de Direcciones
+            </h3>
+            <button onclick="closeVisibilityModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fa-solid fa-xmark text-lg sm:text-xl"></i>
+            </button>
+        </div>
+
+        <div class="px-4 sm:px-6 py-4 space-y-4">
+            <!-- Métricas rápidas dentro del modal -->
+            <div class="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                <div class="text-center">
+                    <p class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Total Listas</p>
+                    <p class="text-lg font-extrabold text-blue-600">{{ total_lists }}</p>
+                </div>
+                <div class="text-center border-l border-gray-200">
+                    <p class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Total Direcciones</p>
+                    <p class="text-lg font-extrabold text-green-600">{{ total_addresses }}</p>
+                </div>
+            </div>
+
+            <!-- Búsqueda dentro del modal -->
+            <div class="relative">
+                <input type="text" oninput="filterModalCheckboxes(this.value)" placeholder="Buscar en el listado..."
+                    class="w-full pl-9 pr-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-mono">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-magnifying-glass text-xs sm:text-sm"></i>
+                </div>
+            </div>
+
+            <!-- Acciones rápidas -->
+            <div class="flex justify-between items-center text-xs">
+                <button type="button" onclick="toggleAllModalCheckboxes(true)"
+                    class="text-blue-600 hover:text-blue-800 font-semibold transition-colors">Seleccionar todos</button>
+                <button type="button" onclick="toggleAllModalCheckboxes(false)"
+                    class="text-red-600 hover:text-red-800 font-semibold transition-colors">Deseleccionar todos</button>
+            </div>
+
+            <!-- Contenedor del listado -->
+            <div class="max-h-60 overflow-y-auto border border-gray-100 rounded-lg p-2 space-y-1 bg-gray-50/50"
+                id="modal-checklist-container">
+                {% if lists %}
+                {% for item in lists %}
+                <label class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+                    <input type="checkbox" data-list-name="{{ item.name | lower }}"
+                        class="visibility-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        checked>
+                    <span class="text-xs sm:text-sm text-gray-700 font-medium">{{ item.name }}</span>
+                    <span class="ml-auto text-xs text-gray-400 font-mono">{{ item.count }} dir.</span>
+                </label>
+                {% endfor %}
+                {% else %}
+                <p class="text-center text-xs text-gray-400 py-4">No hay listas disponibles</p>
+                {% endif %}
+            </div>
+
+            <div class="mt-6 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-gray-100">
+                <button type="button" onclick="closeVisibilityModal()"
+                    class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none transition-colors">
+                    Cancelar
+                </button>
+                <button type="button" onclick="applyVisibilityFilter()"
+                    class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none transition-colors shadow-sm font-semibold">
+                    Aplicar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Sincronizar checkboxes del modal con el estado visible en la página
+    (function () {
+        const hiddenCards = document.querySelectorAll('.address-list-card.hidden-by-user');
+        hiddenCards.forEach(card => {
+            const listName = card.getAttribute('data-list-name');
+            const checkbox = document.querySelector(`.visibility-checkbox[data-list-name="${listName}"]`);
+            if (checkbox) {
+                checkbox.checked = false;
+            }
+        });
+    })();
+</script>

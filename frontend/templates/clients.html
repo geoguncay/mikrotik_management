@@ -71,12 +71,12 @@
             <h2 class="text-xl sm:text-2xl font-bold text-gray-800">Clientes</h2>
         </div>
         <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <button hx-get="/api/views/modal_add_client" hx-target="#modal-container" hx-swap="innerHTML"
+            <button hx-get="/api/views/add_client" hx-target="#modal-container" hx-swap="innerHTML"
                 class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center sm:justify-start">
                 <i class="fa-solid fa-user mr-2"></i> <span class="hidden sm:inline">Agregar Cliente</span><span
                     class="sm:hidden">Cliente</span>
             </button>
-            <button hx-get="/api/views/modal_add_client_from_list" hx-target="#modal-container" hx-swap="innerHTML"
+            <button hx-get="/api/views/add_client_from_list" hx-target="#modal-container" hx-swap="innerHTML"
                 class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center sm:justify-start">
                 <i class="fa-solid fa-list mr-2"></i> <span class="hidden sm:inline">Agregar desde la Lista</span><span
                     class="sm:hidden">Lista</span>
@@ -90,63 +90,91 @@
             <thead class="bg-gray-50">
                 <tr>
                     <th scope="col"
-                        class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                         hx-get="/api/views/clients?sort_by=nombre&order={% if sort_by == 'nombre' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
                         hx-target="#main-content" hx-swap="innerHTML">
                         Cliente
                         {% if sort_by == 'nombre' %}
                         <i
-                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1.5"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort text-gray-300 ml-1.5 opacity-50"></i>
                         {% endif %}
                     </th>
                     <th scope="col"
-                        class="hidden md:table-cell px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        class="hidden md:table-cell px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                         hx-get="/api/views/clients?sort_by=ip&order={% if sort_by == 'ip' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
                         hx-target="#main-content" hx-swap="innerHTML">
                         IP
                         {% if sort_by == 'ip' %}
                         <i
-                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1.5"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort text-gray-300 ml-1.5 opacity-50"></i>
                         {% endif %}
                     </th>
                     <th scope="col"
-                        class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Estado</th>
+                        class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        hx-get="/api/views/clients?sort_by=estado&order={% if sort_by == 'estado' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
+                        hx-target="#main-content" hx-swap="innerHTML">
+                        Estado
+                        {% if sort_by == 'estado' %}
+                        <i
+                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1.5"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort text-gray-300 ml-1.5 opacity-50"></i>
+                        {% endif %}
+                    </th>
                     <th scope="col"
-                        class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Router</th>
+                        class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        hx-get="/api/views/clients?sort_by=router&order={% if sort_by == 'router' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
+                        hx-target="#main-content" hx-swap="innerHTML">
+                        Router
+                        {% if sort_by == 'router' %}
+                        <i
+                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1.5"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort text-gray-300 ml-1.5 opacity-50"></i>
+                        {% endif %}
+                    </th>
                     <th scope="col"
-                        class="hidden sm:table-cell px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        class="hidden sm:table-cell px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                         hx-get="/api/views/clients?sort_by=descarga&order={% if sort_by == 'descarga' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
                         hx-target="#main-content" hx-swap="innerHTML">
-                        Desc
+                        Down
                         {% if sort_by == 'descarga' %}
                         <i
-                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1.5"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort text-gray-300 ml-1.5 opacity-50"></i>
                         {% endif %}
                     </th>
                     <th scope="col"
-                        class="hidden lg:table-cell px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        class="hidden lg:table-cell px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                         hx-get="/api/views/clients?sort_by=subida&order={% if sort_by == 'subida' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
                         hx-target="#main-content" hx-swap="innerHTML">
-                        Subida
+                        Up
                         {% if sort_by == 'subida' %}
                         <i
-                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1.5"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort text-gray-300 ml-1.5 opacity-50"></i>
                         {% endif %}
                     </th>
                     <th scope="col"
-                        class="px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        class="px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                         hx-get="/api/views/clients?sort_by=total&order={% if sort_by == 'total' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
                         hx-target="#main-content" hx-swap="innerHTML">
                         Total
                         {% if sort_by == 'total' %}
                         <i
-                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1"></i>
+                            class="fa-solid fa-arrow-{% if order == 'asc' %}up{% else %}down{% endif %} text-blue-500 ml-1.5"></i>
+                        {% else %}
+                        <i class="fa-solid fa-sort text-gray-300 ml-1.5 opacity-50"></i>
                         {% endif %}
                     </th>
                     <th scope="col"
-                        class="px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        class="px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider select-none">
                         Acciones</th>
                 </tr>
             </thead>
@@ -203,7 +231,7 @@
                     </td>
                     <td class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div class="flex items-center justify-end gap-2">
-                            <button hx-get="/api/views/modal_edit_client/{{ cliente.id }}" hx-target="#modal-container"
+                            <button hx-get="/api/views/edit_client/{{ cliente.id }}" hx-target="#modal-container"
                                 hx-swap="innerHTML" class="text-blue-400 hover:text-blue-600 transition-colors"
                                 title="Editar">
                                 <i class="fa-solid fa-edit"></i>

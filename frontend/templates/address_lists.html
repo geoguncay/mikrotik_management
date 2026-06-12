@@ -1,22 +1,46 @@
 <div class="space-y-6">
-	<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+	<div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
 		<div>
-			<h2 class="text-xl sm:text-2xl font-bold text-gray-800">Listas de Direcciones</h2>
-			<p class="text-xs sm:text-sm text-gray-500 mt-1">Ver listas de direcciones configuradas en el firewall.</p>
+			<h2 class="text-xl sm:text-2xl font-bold text-gray-800">Listas</h2>
 		</div>
-		
-		<!-- Router Selection Dropdown -->
-		<div class="w-full sm:w-auto flex items-center gap-2">
-			<label for="router-select" class="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Router:</label>
-			<select id="router-select" name="router_id"
-				hx-get="/api/views/address-lists"
-				hx-target="#main-content"
-				hx-swap="innerHTML"
-				class="w-full sm:w-auto px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
-				{% for r in routers %}
-					<option value="{{ r.id }}" {% if selected_router_id == r.id %}selected{% endif %}>{{ r.nombre }} ({{ r.ip_address }})</option>
-				{% endfor %}
-			</select>
+
+		<div class="w-full lg:w-auto flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+
+
+			<!-- Búsqueda/Filtro -->
+			<div class="relative flex-1 sm:flex-initial">
+				<input type="text" id="search-lists" oninput="filterAddressLists()" placeholder="Buscar lista..."
+					class="w-full sm:w-64 pl-9 pr-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white shadow-sm"
+					title="Filtrar listas de direcciones por nombre">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+					<i class="fa-solid fa-magnifying-glass text-xs sm:text-sm"></i>
+				</div>
+			</div>
+
+			<!-- Botón de Gestionar Visibilidad (Modal) -->
+			<div>
+				<button type="button" hx-get="/api/views/filter_address_lists?router_id={{ selected_router_id }}"
+					hx-target="#modal-container" hx-swap="innerHTML"
+					class="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-all shadow-sm"
+					title="Filtrar visibilidad de listas de direcciones">
+					<i class="fa-solid fa-list-check text-blue-600"></i>
+					<span>Filtrar Listas</span>
+				</button>
+			</div>
+
+			<!-- Router Selection Dropdown -->
+			<div class="flex items-center gap-2">
+				<label for="router-select"
+					class="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Router:</label>
+				<select id="router-select" name="router_id" hx-get="/api/views/address-lists" hx-target="#main-content"
+					hx-swap="innerHTML"
+					class="w-full sm:w-auto px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white shadow-sm">
+					{% for r in routers %}
+					<option value="{{ r.id }}" {% if selected_router_id==r.id %}selected{% endif %}>{{ r.nombre }} ({{
+						r.ip_address }})</option>
+					{% endfor %}
+				</select>
+			</div>
 		</div>
 	</div>
 
@@ -30,29 +54,56 @@
 	<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
 		<div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
 			<p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Total de Listas</p>
-			<p class="text-2xl font-bold text-blue-600">{{ total_lists }}</p>
+			<p id="metric-total-lists" class="text-2xl font-bold text-blue-600">{{ total_lists }}</p>
 		</div>
 		<div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
 			<p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Total de Direcciones</p>
-			<p class="text-2xl font-bold text-green-600">{{ total_addresses }}</p>
+			<p id="metric-total-addresses" class="text-2xl font-bold text-green-600">{{ total_addresses }}</p>
 		</div>
 		<div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-			<p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Estado RB</p>
-			<p class="text-2xl font-bold text-purple-600">
-				<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500 mr-2"
-					style="display: inline-block;"></span>
-				Conectado
-			</p>
+			<p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Router</p>
+			<div
+				class="text-base sm:text-lg font-bold {% if connected %}text-purple-600{% else %}text-red-600{% endif %} flex items-center gap-2.5 mt-1.5">
+				<span class="relative flex h-3 w-3">
+					{% if connected %}
+					<span
+						class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+					<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+					{% else %}
+					<span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+					{% endif %}
+				</span>
+				<span class="truncate">
+					{% for r in routers %}
+					{% if selected_router_id == r.id %}
+					{{ r.nombre }}
+					{% endif %}
+					{% endfor %}
+				</span>
+			</div>
 		</div>
 	</div>
 
 	<!-- Address Lists -->
+	<style>
+		/* Ocultar el marcador de expansión predeterminado en navegadores */
+		summary::-webkit-details-marker {
+			display: none;
+		}
+
+		summary {
+			list-style: none;
+		}
+	</style>
+
 	<div class="space-y-4">
 		{% if address_lists %}
 		{% for list_item in address_lists %}
-		<div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+		<details class="address-list-card group bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden"
+			data-list-name="{{ list_item.name | lower }}">
 			<!-- List Header -->
-			<div class="bg-gradient-to-r from-blue-50 to-blue-100 px-4 sm:px-6 py-4 border-b border-gray-200">
+			<summary
+				class="list-none cursor-pointer bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 px-4 sm:px-6 py-4 select-none [&::-webkit-details-marker]:hidden transition-all duration-200">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-3">
 						<i class="fa-solid fa-shield text-blue-600 text-lg"></i>
@@ -61,26 +112,38 @@
 							<p class="text-xs text-gray-500">{{ list_item.addresses | length }} dirección(es)</p>
 						</div>
 					</div>
-					<div class="text-right">
+					<div class="flex items-center gap-3">
 						<span class="inline-block px-3 py-1 bg-blue-200 text-blue-800 text-xs font-medium rounded-full">
 							{{ list_item.addresses | length }}
 						</span>
+
+
+						<i
+							class="fa-solid fa-chevron-down text-blue-600 transition-transform duration-200 group-open:rotate-180"></i>
 					</div>
 				</div>
-			</div>
+			</summary>
 
 			<!-- Addresses Table -->
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto border-t border-gray-200">
 				<table class="w-full divide-y divide-gray-200 text-sm">
-					<thead class="bg-gray-50">
+					<thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase">
 						<tr>
-							<th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
-								Dirección/Red</th>
-							<th
-								class="hidden md:table-cell px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
-								Comentario</th>
-							<th class="px-4 sm:px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">
-								Estado</th>
+							<th class="px-4 sm:px-6 py-3 text-left cursor-pointer hover:bg-gray-100 transition-colors select-none"
+								onclick="sortTable(this, 0)" data-order="asc">
+								Dirección/Red <i class="sort-arrow fa-solid fa-arrow-up text-blue-500 ml-1.5"></i>
+							</th>
+							<th class="hidden md:table-cell px-4 sm:px-6 py-3 text-left cursor-pointer hover:bg-gray-100 transition-colors select-none"
+								onclick="sortTable(this, 1)">
+								Comentario <i class="sort-arrow fa-solid fa-sort text-gray-300 ml-1.5 opacity-50"></i>
+							</th>
+							<th class="px-4 sm:px-6 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
+								onclick="sortTable(this, 2)">
+								Estado <i class="sort-arrow fa-solid fa-sort text-gray-300 ml-1.5 opacity-50"></i>
+							</th>
+							<th class="px-4 sm:px-6 py-3 text-center select-none">
+								Acciones
+							</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-200">
@@ -100,27 +163,41 @@
 								<span class="text-gray-400 italic">Sin comentario</span>
 								{% endif %}
 							</td>
-							<td class="px-4 sm:px-6 py-3 text-center">
-								{% if addr.disabled %}
-								<span
-									class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded">
-									<i class="fa-solid fa-circle-xmark"></i>
-									Deshabilitada
-								</span>
-								{% else %}
-								<span
-									class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded">
-									<i class="fa-solid fa-circle-check"></i>
-									Activa
-								</span>
-								{% endif %}
+							<td class="px-4 sm:px-6 py-3 text-center"
+								id="status-cell-{{ addr.id | replace('*', '_') }}">
+								<button hx-post="/api/views/toggle-address-list-entry"
+									hx-vals='{"router_id": "{{ selected_router_id }}", "entry_id": "{{ addr.id }}", "disabled": {% if addr.disabled %}false{% else %}true{% endif %}}'
+									hx-target="#status-cell-{{ addr.id | replace('*', '_') }}" hx-swap="outerHTML"
+									class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full transition-all duration-200 shadow-sm border
+									{% if addr.disabled %}
+										bg-red-50 text-red-700 border-red-200 hover:bg-red-100
+									{% else %}
+										bg-green-50 text-green-700 border-green-200 hover:bg-green-100
+									{% endif %}" title="{% if addr.disabled %}Habilitar{% else %}Deshabilitar{% endif %} dirección">
+									{% if addr.disabled %}
+									<i class="fa-solid fa-circle-xmark text-red-500"></i>
+									<span>Desactivado</span>
+									{% else %}
+									<i class="fa-solid fa-circle-check text-green-500"></i>
+									<span>Activado</span>
+									{% endif %}
+								</button>
+							</td>
+							<td class="px-4 sm:px-6 py-3 text-center whitespace-nowrap">
+								<button
+									hx-get="/api/views/edit_address_list_entry?router_id={{ selected_router_id }}&entry_id={{ addr.id | urlencode }}&list_name={{ list_item.name | urlencode }}&address={{ addr.address | urlencode }}&comment={{ addr.comment | urlencode }}&disabled={{ 'true' if addr.disabled else 'false' }}"
+									hx-target="#modal-container" hx-swap="innerHTML"
+									class="text-blue-600 hover:text-blue-900 transition-colors p-1"
+									title="Editar dirección">
+									<i class="fa-solid fa-pen-to-square text-base"></i>
+								</button>
 							</td>
 						</tr>
 						{% endfor %}
 					</tbody>
 				</table>
 			</div>
-		</div>
+		</details>
 		{% endfor %}
 		{% else %}
 		<div class="bg-white rounded-lg shadow-sm border border-gray-100 p-12 text-center">
@@ -131,10 +208,147 @@
 		{% endif %}
 	</div>
 
-	<!-- Info Box -->
-	<div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs sm:text-sm text-blue-800">
-		<i class="fa-solid fa-circle-info mr-2"></i>
-		<strong>Tip:</strong> Las listas de direcciones se usan comúnmente en reglas de firewall para bloquear o
-		permitir tráfico desde direcciones IP específicas.
-	</div>
+	<!-- Container para ventanas modales -->
+	<div id="modal-container"></div>
+
+	<!-- Script de filtrado y visualización -->
+	<script>
+		function filterAddressLists() {
+			const query = document.getElementById('search-lists').value.toLowerCase().trim();
+			const cards = document.querySelectorAll('.address-list-card');
+
+			cards.forEach(card => {
+				// Si la lista fue ocultada por el usuario, mantenerla oculta
+				if (card.classList.contains('hidden-by-user')) {
+					card.style.display = 'none';
+					return;
+				}
+
+				const listName = card.getAttribute('data-list-name');
+				if (listName.includes(query)) {
+					card.style.display = '';
+				} else {
+					card.style.display = 'none';
+				}
+			});
+
+			recalculateSummaryMetrics();
+		}
+
+		function recalculateSummaryMetrics() {
+			const cards = document.querySelectorAll('.address-list-card');
+			let visibleLists = 0;
+			let visibleAddresses = 0;
+
+			cards.forEach(card => {
+				if (card.style.display !== 'none') {
+					visibleLists++;
+					const badge = card.querySelector('summary span.bg-blue-200');
+					const count = badge ? parseInt(badge.textContent.trim(), 10) : 0;
+					visibleAddresses += count;
+				}
+			});
+
+			const totalListsElem = document.getElementById('metric-total-lists');
+			const totalAddressesElem = document.getElementById('metric-total-addresses');
+
+			if (totalListsElem) totalListsElem.textContent = visibleLists;
+			if (totalAddressesElem) totalAddressesElem.textContent = visibleAddresses;
+		}
+
+		function closeVisibilityModal() {
+			document.getElementById('modal-container').innerHTML = '';
+		}
+
+		function filterModalCheckboxes(value) {
+			const query = value.toLowerCase().trim();
+			const labels = document.querySelectorAll('#modal-checklist-container label');
+			labels.forEach(label => {
+				const checkbox = label.querySelector('input');
+				const listName = checkbox.getAttribute('data-list-name');
+				if (listName.includes(query)) {
+					label.style.display = '';
+				} else {
+					label.style.display = 'none';
+				}
+			});
+		}
+
+		function toggleAllModalCheckboxes(checked) {
+			const checkboxes = document.querySelectorAll('.visibility-checkbox');
+			checkboxes.forEach(cb => {
+				cb.checked = checked;
+			});
+		}
+
+		function applyVisibilityFilter() {
+			const checkboxes = document.querySelectorAll('.visibility-checkbox');
+			const cards = document.querySelectorAll('.address-list-card');
+
+			checkboxes.forEach(cb => {
+				const listName = cb.getAttribute('data-list-name');
+				const checked = cb.checked;
+
+				cards.forEach(card => {
+					const cardName = card.getAttribute('data-list-name');
+					if (cardName === listName) {
+						if (checked) {
+							card.classList.remove('hidden-by-user');
+						} else {
+							card.classList.add('hidden-by-user');
+						}
+					}
+				});
+			});
+
+			// Recalcular visibilidad general
+			filterAddressLists();
+			closeVisibilityModal();
+		}
+
+		function sortTable(header, colIndex) {
+			const table = header.closest('table');
+			const tbody = table.querySelector('tbody');
+			const rows = Array.from(tbody.querySelectorAll('tr'));
+			
+			// Determinar la dirección del ordenamiento
+			let isAsc = header.getAttribute('data-order') === 'asc';
+			isAsc = !isAsc; // Alternar dirección
+			header.setAttribute('data-order', isAsc ? 'asc' : 'desc');
+			
+			// Limpiar flechas de otros encabezados en la misma tabla y mostrar el icono neutro de ordenamiento
+			const siblings = header.parentNode.querySelectorAll('th');
+			siblings.forEach(sib => {
+				if (sib !== header) {
+					sib.removeAttribute('data-order');
+					const arrow = sib.querySelector('.sort-arrow');
+					if (arrow) {
+						arrow.className = 'sort-arrow fa-solid fa-sort text-gray-300 ml-1.5 opacity-50';
+					}
+				}
+			});
+			
+			// Actualizar el icono de flecha para el encabezado activo
+			let arrow = header.querySelector('.sort-arrow');
+			if (!arrow) {
+				arrow = document.createElement('i');
+				arrow.className = 'sort-arrow ml-1.5';
+				header.appendChild(arrow);
+			}
+			arrow.className = `sort-arrow fa-solid fa-arrow-${isAsc ? 'up' : 'down'} text-blue-500 ml-1.5`;
+			
+			// Ordenar filas (numérico natural para IPs y texto estándar para otros campos)
+			rows.sort((rowA, rowB) => {
+				const cellA = rowA.cells[colIndex].textContent.trim();
+				const cellB = rowB.cells[colIndex].textContent.trim();
+				
+				return isAsc 
+					? cellA.localeCompare(cellB, undefined, { numeric: true, sensitivity: 'base' })
+					: cellB.localeCompare(cellA, undefined, { numeric: true, sensitivity: 'base' });
+			});
+			
+			// Volver a añadir las filas en el nuevo orden
+			rows.forEach(row => tbody.appendChild(row));
+		}
+	</script>
 </div>
