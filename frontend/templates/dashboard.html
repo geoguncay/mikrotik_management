@@ -26,22 +26,12 @@
 	</div>
 
 	<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
-		<!-- TRAFFIC CHART -->
-		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
-			<h3 class="text-base sm:text-lg font-semibold text-gray-800">Últimas 24 horas</h3>
-			<div class="mt-1 space-y-2 text-xs sm:text-sm">
-				<div class="flex justify-between">
-					<span class="text-gray-600">Descarga</span>
-				<span id="metric-24h-descarga" class="font-semibold text-gray-900">{{ total_24h_descarga | format_bytes }}</span>
-			</div>
-			<div class="flex justify-between">
-				<span class="text-gray-600">Subida</span>
-				<span id="metric-24h-subida" class="font-semibold text-gray-900">{{ total_24h_subida | format_bytes }}</span>
-				</div>
-			</div>
-			<!-- Traffic consumption chart -->
-			<div class="mt-1">
-				<canvas id="trafficChart24h" class="w-full"></canvas>
+		<!-- FUTURE CONTAINER -->
+		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5 flex flex-col justify-center items-center min-h-[300px]">
+			<div class="text-center text-gray-400">
+				<i class="fa-solid fa-hourglass-start text-3xl mb-2 text-blue-500/80 animate-pulse"></i>
+				<p class="text-sm font-semibold text-gray-700">Contenido Próximamente</p>
+				<p class="text-xs text-gray-400 mt-1">Este espacio está listo para nueva información.</p>
 			</div>
 		</div>
 		<!-- GENERAL METRICS DASHBOARD -->
@@ -108,243 +98,7 @@
 		</table>
 	</div>
 
-	<script>
-	let trafficChart = null;
-	const CHART_UPDATE_INTERVAL = 5000; // Actualizar cada 5 segundos
 
-	// Inicializar gráfico de tráfico de 24 horas con actualización dinámica
-	async function initTrafficChart() {
-		const ctx = document.getElementById('trafficChart24h');
-		if (!ctx || typeof Chart === 'undefined') return;
-		
-		// Cargar datos iniciales
-		await updateChartData();
-		
-		// Actualizar cada 5 segundos
-		setInterval(updateChartData, CHART_UPDATE_INTERVAL);
-	}
-
-	async function updateChartData() {
-		try {
-			const response = await fetch('/api/traffic-data/24h');
-			const data = await response.json();
-			
-			const chartContainer = document.getElementById('trafficChart24h');
-			if (!chartContainer) return;
-			
-			// Convertir labels a Date objects
-			const dateLabels = data.labels.map(label => new Date(label));
-			
-			if (!trafficChart) {
-				// Crear gráfico por primera vez
-				const ctx = chartContainer.getContext('2d');
-				trafficChart = new Chart(ctx, {
-					type: 'line',
-					data: {
-						labels: dateLabels,
-						datasets: [
-							{
-								label: 'Tráfico Total (GB)',
-								data: data.total,
-								borderColor: 'rgb(34 197 94)',
-								backgroundColor: 'rgba(139, 92, 246, 0.1)',
-								borderWidth: 3,
-								fill: true,
-								tension: 0.4,
-								pointRadius: 3,
-								pointBackgroundColor: 'rgb(34 197 94)',
-								pointBorderColor: '#fff',
-								pointBorderWidth: 2,
-								pointHoverRadius: 4,
-								yAxisID: 'y'
-							}
-						]
-					},
-					options: {
-						responsive: true,
-						maintainAspectRatio: true,
-						interaction: {
-							mode: 'index',
-							intersect: false
-						},
-						plugins: {
-							legend: {
-								display: true,
-								position: 'top',
-								labels: {
-									usePointStyle: true,
-									padding: 15,
-									font: { size: 12, weight: '500' },
-									color: '#6b7280'
-								}
-							},
-
-						},
-						scales: {
-							y: {
-								beginAtZero: true,
-								position: 'left',
-								title: {
-									display: true,
-									text: 'Tráfico (GB)',
-									font: { size: 12, weight: '500' }
-								},
-								grid: {
-									color: 'rgba(0, 0, 0, 0.05)',
-									drawBorder: true
-								},
-								ticks: {
-									callback: function(value) {
-										return value.toFixed(2) + ' GB';
-									},
-									font: { size: 11 }
-								}
-							},
-							x: {
-								type: 'time',
-								time: {
-									unit: 'hour',
-									displayFormats: {
-										hour: 'HH:mm'
-									}
-								},
-								grid: {
-									display: false,
-									drawBorder: true
-								},
-								ticks: {
-									font: { size: 11 },
-									maxRotation: 45,
-									minRotation: 45
-								}
-							}
-						}
-					}
-				});
-			} else {
-				// Actualizar datos del gráfico existente
-				// Verificar si el número de puntos cambió (nueva hora)
-				if (trafficChart.data.labels.length !== dateLabels.length) {
-					// Destruir y recrear el gráfico si cambió el número de horas
-					trafficChart.destroy();
-					trafficChart = null;
-					// Crear el gráfico nuevamente
-					const ctx = chartContainer.getContext('2d');
-					trafficChart = new Chart(ctx, {
-						type: 'line',
-						data: {
-							labels: dateLabels,
-							datasets: [
-								{
-									label: 'Tráfico Total (GB)',
-									data: data.total,
-									borderColor: 'rgb(34 197 94)',
-									backgroundColor: 'rgba(139, 92, 246, 0.1)',
-									borderWidth: 3,
-									fill: true,
-									tension: 0.4,
-									pointRadius: 5,
-									pointBackgroundColor: 'rgb(34 197 94)',
-									pointBorderColor: '#fff',
-									pointBorderWidth: 2,
-									pointHoverRadius: 7,
-									yAxisID: 'y'
-								}
-							]
-						},
-						options: {
-							responsive: true,
-							maintainAspectRatio: true,
-							interaction: {
-								mode: 'index',
-								intersect: false
-							},
-							plugins: {
-								legend: {
-									display: true,
-									position: 'top',
-									labels: {
-										usePointStyle: true,
-										padding: 15,
-										font: { size: 12, weight: '500' },
-										color: '#6b7280'
-									}
-								},
-								tooltip: {
-									backgroundColor: 'rgba(0, 0, 0, 0.8)',
-									padding: 12,
-									titleFont: { size: 14, weight: 'bold' },
-									bodyFont: { size: 13 },
-									borderColor: '#3b82f6',
-									borderWidth: 1,
-									displayColors: true,
-									callbacks: {
-										title: function(context) {
-											if (context.length > 0) {
-												const date = context[0].label;
-												return moment(date).format('DD/MM/YYYY HH:mm');
-											}
-											return '';
-										},
-										label: function(context) {
-											return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' GB';
-										}
-									}
-								}
-							},
-							scales: {
-								y: {
-									beginAtZero: true,
-									position: 'left',
-									title: {
-										display: true,
-										text: 'Tráfico (GB)',
-										font: { size: 12, weight: '500' }
-									},
-									grid: {
-										color: 'rgba(0, 0, 0, 0.05)',
-										drawBorder: true
-									},
-									ticks: {
-										callback: function(value) {
-											return value.toFixed(2) + ' GB';
-										},
-										font: { size: 11 }
-									}
-								},
-								x: {
-									type: 'time',
-									time: {
-										unit: 'hour',
-										displayFormats: {
-											hour: 'HH:mm'
-										}
-									},
-									grid: {
-										display: false,
-										drawBorder: true
-									},
-									ticks: {
-										font: { size: 11 },
-										maxRotation: 45,
-										minRotation: 45
-									}
-								}
-							}
-						}
-					});
-				} else {
-					// Solo actualizar los datos si el número de horas no cambió
-					trafficChart.data.labels = dateLabels;
-					trafficChart.data.datasets[0].data = data.total;
-					trafficChart.update('none'); // Actualizar sin animación
-				}
-			}
-		} catch (error) {
-			console.error('Error actualizando datos del gráfico:', error);
-		}
-	}
-	</script>
 	<script>
 	// Función para formatear bytes (debe coincidir con la del backend)
 	function formatBytes(bytes) {
@@ -369,10 +123,6 @@
 			document.getElementById('metric-hosts-activos').textContent = data.hosts_activos;
 			document.getElementById('metric-hosts-inactivos').textContent = data.hosts_inactivos;
 			document.getElementById('metric-traffic-7d').textContent = formatBytes(data.total_7d_descarga + data.total_7d_subida);
-
-			// Actualizar datos de 24h
-			document.getElementById('metric-24h-descarga').textContent = formatBytes(data.total_24h_descarga);
-			document.getElementById('metric-24h-subida').textContent = formatBytes(data.total_24h_subida);
 
 			// Actualizar resumen general
 			document.getElementById('summary-total-clientes').textContent = data.total_hosts;
@@ -403,14 +153,5 @@
 
 	// Actualizar datos cada 10 segundos
 	setInterval(updateDashboardData, 10000);
-
-	// Ejecutar gráfico inmediatamente
-	initTrafficChart();
-
-	// También ejecutar después de que HTMX actualice el contenido
-	document.addEventListener('htmx:afterSwap', function() {
-		trafficChart = null; // Resetear gráfico
-		setTimeout(initTrafficChart, 100);
-	});
 	</script>
 </div>
