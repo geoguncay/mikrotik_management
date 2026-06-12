@@ -341,16 +341,16 @@ async def view_add_client(request: Request):
         db.close()
 
 
-@router.get("/add_client_from_list", response_class=HTMLResponse)
-async def view_add_client_from_list(request: Request):
-    """HTMX fragment: add client from list modal"""
+@router.get("/add_clients", response_class=HTMLResponse)
+async def view_add_clients(request: Request):
+    """HTMX fragment: add client from list or queue modal"""
     from ..models import Router
     db = SessionLocal()
     try:
         routers = db.query(Router).all()
         return templates.TemplateResponse(
             request,
-            "modals/add_client_from_list.html",
+            "modals/add_clients.html",
             {"routers": routers}
         )
     finally:
@@ -656,6 +656,140 @@ async def get_address_lists_summary(router_id: int = None):
             content={
                 "success": False,
                 "error": f"Error al obtener listas: {str(e)}",
+                "lists": [],
+                "total": 0
+            }
+        )
+    finally:
+        db.close()
+
+
+@router.get("/queues-summary")
+async def get_queues_summary(router_id: int = None):
+    """API endpoint: Get all simple queues as a list of IPs and names grouped hierarchically for selection"""
+    from fastapi.responses import JSONResponse
+    from ..models import Router
+    import routeros_api
+    db = SessionLocal()
+    try:
+        router_obj = None
+        if router_id:
+            router_obj = db.query(Router).filter(Router.id == router_id).first()
+        if not router_obj:
+            router_obj = db.query(Router).first()
+            
+        if not router_obj:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "No hay ningún router configurado.",
+                    "lists": [],
+                    "total": 0
+                }
+            )
+            
+        logger.info(f"Fetching Simple Queues from {router_obj.nombre} ({router_obj.ip_address})...")
+        
+        connection = routeros_api.RouterOsApiPool(
+            router_obj.ip_address,
+            username=router_obj.usuario,
+            password=router_obj.password,
+            plaintext_login=True,
+        )
+        api = connection.get_api()
+        list_queues = api.get_resource('/queue/simple')
+        queues = list_queues.get()
+        connection.disconnect()
+        
+        # Identify parent queues
+        parent_names = set(q.get('parent') for q in queues if q.get('parent') and q.get('parent') != 'none')
+        
+        parents_dict = {}
+        independent_queues = []
+        
+        for q in queues:
+            target = q.get('target', '')
+            if not target:
+                continue
+            
+            targets = [t.strip() for t in target.split(',')]
+            for t in targets:
+                ip = t.split('/')[0] if '/' in t else t
+                if ip and any(char.isdigit() for char in ip):
+                    name = q.get('name', '')
+                    comment = q.get('comment', '')
+                    display_comment = f"{name} - {comment}" if comment else name
+                    item = {
+                        'ip': ip,
+                        'comment': display_comment
+                    }
+                    
+                    parent_name = q.get('parent')
+                    if parent_name and parent_name != 'none':
+                        if parent_name not in parents_dict:
+                            parents_dict[parent_name] = []
+                        parents_dict[parent_name].append(item)
+                    else:
+                        if name in parent_names:
+                            if name not in parents_dict:
+                                parents_dict[name] = []
+                            parents_dict[name].append(item)
+                        else:
+                            independent_queues.append(item)
+                            
+        # Build lists_display format (similar to address lists)
+        lists_display = []
+        
+        # Sort parents and add to display list
+        for parent_key in sorted(parents_dict.keys()):
+            children = parents_dict[parent_key]
+            # Remove duplicates if any (same IP under same parent)
+            seen_ips = set()
+            unique_children = []
+            for child in children:
+                if child['ip'] not in seen_ips:
+                    seen_ips.add(child['ip'])
+                    unique_children.append(child)
+            
+            if unique_children:
+                lists_display.append({
+                    'name': f"Cola Padre: {parent_key}",
+                    'count': len(unique_children),
+                    'addresses': unique_children
+                })
+                
+        # Add independent queues if any
+        if independent_queues:
+            seen_ips = set()
+            unique_ind = []
+            for item in independent_queues:
+                if item['ip'] not in seen_ips:
+                    seen_ips.add(item['ip'])
+                    unique_ind.append(item)
+            
+            if unique_ind:
+                lists_display.append({
+                    'name': "Colas Independientes",
+                    'count': len(unique_ind),
+                    'addresses': unique_ind
+                })
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "lists": lists_display,
+                "total": len(lists_display)
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error fetching queues summary: {type(e).__name__}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": f"Error al conectar con el router: {str(e)}",
                 "lists": [],
                 "total": 0
             }
