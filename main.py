@@ -17,15 +17,29 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # --- 2. DATA MODELS (Tables) ---
+class Router(Base):
+    __tablename__ = "routers"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, index=True)
+    ip_address = Column(String, unique=True, index=True)
+    usuario = Column(String)
+    password = Column(String)
+    intervalo_minutos = Column(Integer, default=5)
+    activo = Column(Boolean, default=True)
+    
+    hosts = relationship("Host", back_populates="router", cascade="all, delete-orphan")
+
 class Host(Base):
     __tablename__ = "hosts"
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, index=True)
     ip_address = Column(String, unique=True, index=True) # The IP in the MikroTik
     activo = Column(Boolean, default=True)
+    router_id = Column(Integer, ForeignKey("routers.id"), nullable=True)
     
-    # Relationship with traffic records
-    records = relationship("TrafficRecord", back_populates="host")
+    # Relationships
+    router = relationship("Router", back_populates="hosts")
+    records = relationship("TrafficRecord", back_populates="host", cascade="all, delete-orphan")
 
 class TrafficRecord(Base):
     __tablename__ = "registros_trafico"
@@ -39,6 +53,24 @@ class TrafficRecord(Base):
 
 # Create the tables in the SQLite file if they don't exist
 Base.metadata.create_all(bind=engine)
+
+def run_migrations():
+    import sqlite3
+    db_path = "traffic_counter.db"
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(hosts)")
+        columns = [info[1] for info in cursor.fetchall()]
+        if columns and "router_id" not in columns:
+            print("Migrating legacy database: adding router_id column to hosts table...")
+            cursor.execute("ALTER TABLE hosts ADD COLUMN router_id INTEGER REFERENCES routers(id)")
+            conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Migration error: {e}")
+
+run_migrations()
 
 # --- 3. FASTAPI CONFIGURATION AND TEMPLATES ---
 app = FastAPI(title="MikroTik Traffic Counter")
@@ -154,12 +186,12 @@ async def view_modal_add_config(request: Request):
     return templates.TemplateResponse(request, "modals/modal_add_config.html")
 
 
-@app.get("/api/views/configuracion", response_class=HTMLResponse)
-async def view_config(request: Request):
+@app.get("/api/views/router", response_class=HTMLResponse)
+async def view_router(request: Request):
     """HTMX Fragment to view and update RB connection configuration."""
     return templates.TemplateResponse(
         request,
-        "config.html",
+        "router.html",
         {
             "mk_ip": CONFIG["MK_IP"],
             "mk_user": CONFIG["MK_USER"],
@@ -169,8 +201,8 @@ async def view_config(request: Request):
     )
 
 
-@app.post("/api/configuracion", response_class=HTMLResponse)
-async def update_config(
+@app.post("/api/router", response_class=HTMLResponse)
+async def update_router(
     request: Request,
     mk_ip: str = Form(...),
     mk_user: str = Form(...),
@@ -186,7 +218,7 @@ async def update_config(
 
     return templates.TemplateResponse(
         request,
-        "config.html",
+        "router.html",
         {
             "mk_ip": CONFIG["MK_IP"],
             "mk_user": CONFIG["MK_USER"],
@@ -251,81 +283,81 @@ last_readings = {}
 
 async def collect_traffic():
     """
-    This function runs in a loop in the background every X minutes.
+    This function runs in a loop in the background, collecting traffic from multiple routers.
     """
     while True:
-        print(f"[{datetime.utcnow()}] Starting traffic collection...")
         db = SessionLocal()
-        
         try:
-            # 1. Get active clients from SQLite
-            active_clients = db.query(Host).filter(Host.activo == True).all()
+            active_routers = db.query(Router).filter(Router.activo == True).all()
             
-            if not active_clients:
-                print("No active clients to monitor.")
-                await asyncio.sleep(CONFIG["INTERVALO_MINUTOS"] * 60)
-                continue
-
-            # 2. Connect to MikroTik via API
-            connection = routeros_api.RouterOsApiPool(
-                CONFIG["MK_IP"],
-                username=CONFIG["MK_USER"],
-                password=CONFIG["MK_PASS"],
-                plaintext_login=True,
-            )
-            api = connection.get_api()
-
-            # 3. Read Simple Queues
-            # We assume you limit/control your clients using Simple Queues and that the queue name
-            # or target IP matches our record.
-            list_queues = api.get_resource('/queue/simple')
-            queues = list_queues.get()
-
-            # 4. Process traffic
-            for client in active_clients:
-                # We look for the queue that belongs to this client's IP
-                client_queue = next((q for q in queues if client.ip_address in q.get('target', '')), None)
+            for router in active_routers:
+                active_clients = db.query(Host).filter(
+                    Host.activo == True,
+                    Host.router_id == router.id
+                ).all()
                 
-                if client_queue:
-                    # 'bytes' comes as a string: "BytesTx/BytesRx" (Upload/Download from the router's perspective)
-                    bytes_str = client_queue.get('bytes', '0/0')
-                    tx_str, rx_str = bytes_str.split('/')
-                    current_tx, current_rx = int(tx_str), int(rx_str)
-
-                    ip = client.ip_address
+                if not active_clients:
+                    continue
+                
+                print(f"[{datetime.utcnow()}] Starting traffic collection for router '{router.nombre}' ({router.ip_address})...")
+                
+                connection = None
+                try:
+                    connection = routeros_api.RouterOsApiPool(
+                        router.ip_address,
+                        username=router.usuario,
+                        password=router.password,
+                        plaintext_login=True,
+                    )
+                    api = connection.get_api()
                     
-                    # Calculate the Delta (actual consumption in this interval)
-                    if ip in last_readings:
-                        delta_tx = current_tx - last_readings[ip]['tx']
-                        delta_rx = current_rx - last_readings[ip]['rx']
+                    list_queues = api.get_resource('/queue/simple')
+                    queues = list_queues.get()
+                    
+                    for client in active_clients:
+                        client_queue = next((q for q in queues if client.ip_address in q.get('target', '')), None)
                         
-                        # If delta is negative, it means the router restarted or counters reset
-                        if delta_tx < 0 or delta_rx < 0:
-                            delta_tx, delta_rx = current_tx, current_rx
+                        if client_queue:
+                            bytes_str = client_queue.get('bytes', '0/0')
+                            tx_str, rx_str = bytes_str.split('/')
+                            current_tx, current_rx = int(tx_str), int(rx_str)
                             
-                        # Save the delta to SQLite
-                        new_record = TrafficRecord(
-                            host_id=client.id,
-                            bytes_descarga=delta_rx,
-                            bytes_subida=delta_tx
-                        )
-                        db.add(new_record)
+                            ip = client.ip_address
+                            tracking_key = f"{router.id}_{ip}"
+                            
+                            if tracking_key in last_readings:
+                                delta_tx = current_tx - last_readings[tracking_key]['tx']
+                                delta_rx = current_rx - last_readings[tracking_key]['rx']
+                                
+                                if delta_tx < 0 or delta_rx < 0:
+                                    delta_tx, delta_rx = current_tx, current_rx
+                                    
+                                new_record = TrafficRecord(
+                                    host_id=client.id,
+                                    bytes_descarga=delta_rx,
+                                    bytes_subida=delta_tx
+                                )
+                                db.add(new_record)
+                            
+                            last_readings[tracking_key] = {'tx': current_tx, 'rx': current_rx}
                     
-                    # Update RAM memory for the next iteration
-                    last_readings[ip] = {'tx': current_tx, 'rx': current_rx}
-
-            db.commit()
-            connection.disconnect()
-            print("Collection completed and saved to SQLite.")
-
-        except (routeros_api.exceptions.RouterOsApiConnectionError, routeros_api.exceptions.RouterOsApiCommunicationError, SQLAlchemyError) as e:
-            print(f"Error connecting to MikroTik: {e}")
-            db.rollback()
+                    db.commit()
+                    print(f"Collection completed for router '{router.nombre}'.")
+                except Exception as e:
+                    print(f"Error collecting traffic for router '{router.nombre}': {e}")
+                    db.rollback()
+                finally:
+                    if connection:
+                        try:
+                            connection.disconnect()
+                        except:
+                            pass
+        except Exception as e:
+            print(f"Error in traffic collector loop: {e}")
         finally:
             db.close()
-
-        # Sleep until the next cycle
-        await asyncio.sleep(CONFIG["INTERVALO_MINUTOS"] * 60)
+            
+        await asyncio.sleep(60)
 
 # --- FASTAPI STARTUP EVENT ---
 @app.on_event("startup")

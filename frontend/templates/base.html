@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traffic Counter | MikroTik Admin</title>
+    <title>MikroTik Management | Geo</title>
     <link sizes="180x180" href="/static/favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -244,18 +244,18 @@
                 <span class="sidebar-text">Clientes</span>
             </button>
 
-            <button hx-get="/api/views/configuration" hx-target="#main-content" hx-swap="innerHTML"
-                class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
-                title="Configuración">
-                <i class="fa-solid fa-server w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
-                <span class="sidebar-text">Configuración</span>
-            </button>
-
             <button hx-get="/api/views/address-lists" hx-target="#main-content" hx-swap="innerHTML"
                 class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
                 title="Listas de Direcciones">
                 <i class="fa-solid fa-shield w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
                 <span class="sidebar-text">Address Lists</span>
+            </button>
+
+            <button hx-get="/api/views/router" hx-target="#main-content" hx-swap="innerHTML"
+                class="w-full flex items-center px-4 py-3 text-sm md:text-base text-left rounded-lg hover:bg-gray-800 hover:text-blue-300 transition-colors focus:outline-none"
+                title="Routers">
+                <i class="fa-solid fa-server w-5 md:w-6 mr-3 sidebar-icon flex-shrink-0"></i>
+                <span class="sidebar-text">Routers</span>
             </button>
         </nav>
 

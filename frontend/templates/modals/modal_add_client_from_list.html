@@ -10,8 +10,18 @@
                     class="text-gray-400 hover:text-gray-600 transition-colors">
                 <i class="fa-solid fa-xmark text-lg sm:text-xl"></i>
             </button>
-        </div>
         <div class="mx-6 my-3 sm:px-6 max-h-[60vh] overflow-y-auto">
+            <!-- Router Selector Dropdown -->
+            <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <label for="modal-router-select" class="text-xs sm:text-sm font-semibold text-gray-700">Seleccionar Router MikroTik:</label>
+                <select id="modal-router-select" onchange="loadAddressLists()"
+                    class="w-full sm:w-auto px-3 sm:px-4 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                    {% for r in routers %}
+                        <option value="{{ r.id }}">{{ r.nombre }} ({{ r.ip_address }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
             <!-- Loading -->
             <div id="list-loading" class="text-center py-8">
                 <div class="inline-block">
@@ -67,6 +77,15 @@ function loadAddressLists() {
     error.classList.add('hidden');
     
     console.log('Iniciando carga de listas de direcciones...');
+
+    const routerSelect = document.getElementById('modal-router-select');
+    if (!routerSelect || !routerSelect.value) {
+        listLoading.classList.add('hidden');
+        error.classList.remove('hidden');
+        document.getElementById('list-error-text').textContent = 'No hay routers seleccionados o configurados.';
+        return;
+    }
+    const routerId = routerSelect.value;
     
     // Get existing IPs first
     fetch('/api/views/existing-ips')
@@ -76,7 +95,7 @@ function loadAddressLists() {
                 existingIps = new Set(data.ips);
                 console.log('IPs existentes cargadas:', data.ips);
             }
-            return fetch('/api/views/address-lists-summary');
+            return fetch(`/api/views/address-lists-summary?router_id=${routerId}`);
         })
         .then(res => {
             console.log('Response status:', res.status);
@@ -259,6 +278,7 @@ function addSelectedIps() {
         nombre: item.comment || item.ip // Use comment as name, fallback to IP
     }));
     
+    const routerId = document.getElementById('modal-router-select').value;
     const btn = document.getElementById('add-ips-btn');
     
     btn.disabled = true;
@@ -266,6 +286,7 @@ function addSelectedIps() {
     
     const formData = new FormData();
     formData.append('ips', JSON.stringify(ipsData));
+    formData.append('router_id', routerId);
     
     fetch('/api/clients/bulk-add', {
         method: 'POST',

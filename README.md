@@ -153,7 +153,7 @@ mikrotik_management/
 │       ├── dashboard.html
 │       ├── clients.html
 │       ├── address_lists.html
-│       ├── config.html
+│       ├── router.html
 │       ├── login.html
 │       └── modals/             # Diálogos modales
 ├── requirements.txt            # Dependencias Python
@@ -170,7 +170,7 @@ mikrotik_management/
 - `GET /dashboard` - Dashboard con estadísticas
 - `GET /clients` - Página de gestión de clientes
 - `GET /address-lists` - Listas de direcciones de firewall
-- `GET /config` - Página de configuración
+- `GET /api/views/router` - Página de configuración del router
 
 ### Clientes
 - `GET /api/clients` - Listar clientes con filtros
@@ -187,9 +187,8 @@ mikrotik_management/
 - `GET /api/views/address-lists-summary` - Resumen de listas
 - `GET /api/views/address-lists` - Listas con detalles completos
 
-### Configuración
-- `GET /api/config` - Obtener configuración actual
-- `POST /api/config/update` - Actualizar configuración
+### Configuración del Router
+- `POST /api/router` - Actualizar configuración del router en memoria/archivo
 
 ## 🐳 Docker Compose
 

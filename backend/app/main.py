@@ -89,69 +89,81 @@ async def read_root(request: Request):
 # ==================== BACKGROUND TASKS ====================
 
 async def traffic_collector():
-    """Background task: collect traffic data from MikroTik"""
+    """Background task: collect traffic data from multiple MikroTik routers"""
+    from .models import Router
+    
     while True:
-        print(f"[{datetime.utcnow()}] Starting traffic collection...")
         db = SessionLocal()
-        
         try:
-            active_clients = db.query(Host).filter(Host.activo == True).all()
+            active_routers = db.query(Router).filter(Router.activo == True).all()
             
-            if not active_clients:
-                print("No active clients to monitor.")
-                await asyncio.sleep(CONFIG["INTERVALO_MINUTOS"] * 60)
-                continue
-
-            connection = routeros_api.RouterOsApiPool(
-                CONFIG["MK_IP"],
-                username=CONFIG["MK_USER"],
-                password=CONFIG["MK_PASS"],
-                plaintext_login=True,
-            )
-            api = connection.get_api()
-
-            list_queues = api.get_resource('/queue/simple')
-            queues = list_queues.get()
-
-            for client in active_clients:
-                client_queue = next((q for q in queues if client.ip_address in q.get('target', '')), None)
+            for router in active_routers:
+                active_clients = db.query(Host).filter(
+                    Host.activo == True,
+                    Host.router_id == router.id
+                ).all()
                 
-                if client_queue:
-                    bytes_str = client_queue.get('bytes', '0/0')
-                    tx_str, rx_str = bytes_str.split('/')
-                    current_tx, current_rx = int(tx_str), int(rx_str)
-
-                    ip = client.ip_address
+                if not active_clients:
+                    continue
+                
+                print(f"[{datetime.utcnow()}] Collecting traffic for router '{router.nombre}' ({router.ip_address})...")
+                
+                connection = None
+                try:
+                    connection = routeros_api.RouterOsApiPool(
+                        router.ip_address,
+                        username=router.usuario,
+                        password=router.password,
+                        plaintext_login=True,
+                    )
+                    api = connection.get_api()
                     
-                    if ip in last_readings:
-                        delta_tx = current_tx - last_readings[ip]['tx']
-                        delta_rx = current_rx - last_readings[ip]['rx']
+                    list_queues = api.get_resource('/queue/simple')
+                    queues = list_queues.get()
+                    
+                    for client in active_clients:
+                        client_queue = next((q for q in queues if client.ip_address in q.get('target', '')), None)
                         
-                        if delta_tx < 0 or delta_rx < 0:
-                            delta_tx, delta_rx = current_tx, current_rx
+                        if client_queue:
+                            bytes_str = client_queue.get('bytes', '0/0')
+                            tx_str, rx_str = bytes_str.split('/')
+                            current_tx, current_rx = int(tx_str), int(rx_str)
                             
-                        new_record = RegistroTrafico(
-                            host_id=client.id,
-                            bytes_descarga=delta_rx,
-                            bytes_subida=delta_tx
-                        )
-                        db.add(new_record)
+                            ip = client.ip_address
+                            tracking_key = f"{router.id}_{ip}"
+                            
+                            if tracking_key in last_readings:
+                                delta_tx = current_tx - last_readings[tracking_key]['tx']
+                                delta_rx = current_rx - last_readings[tracking_key]['rx']
+                                
+                                if delta_tx < 0 or delta_rx < 0:
+                                    delta_tx, delta_rx = current_tx, current_rx
+                                    
+                                new_record = RegistroTrafico(
+                                    host_id=client.id,
+                                    bytes_descarga=delta_rx,
+                                    bytes_subida=delta_tx
+                                )
+                                db.add(new_record)
+                            
+                            last_readings[tracking_key] = {'tx': current_tx, 'rx': current_rx}
                     
-                    last_readings[ip] = {'tx': current_tx, 'rx': current_rx}
-
-            db.commit()
-            connection.disconnect()
-            print("Collection completed and saved to SQLite.")
-
-        except (routeros_api.exceptions.RouterOsApiConnectionError, 
-                routeros_api.exceptions.RouterOsApiCommunicationError, 
-                SQLAlchemyError) as e:
-            print(f"Error in MikroTik connection: {e}")
-            db.rollback()
+                    db.commit()
+                except Exception as e:
+                    print(f"Error collecting traffic for router '{router.nombre}': {e}")
+                    db.rollback()
+                finally:
+                    if connection:
+                        try:
+                            connection.disconnect()
+                        except:
+                            pass
+        except Exception as e:
+            print(f"Error in traffic collector loop: {e}")
         finally:
             db.close()
-
-        await asyncio.sleep(CONFIG["INTERVALO_MINUTOS"] * 60)
+            
+        await asyncio.sleep(60)
 
 
 @app.on_event("startup")

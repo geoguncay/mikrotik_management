@@ -38,27 +38,51 @@ router = APIRouter(prefix="", tags=["Clients"])
 
 
 # ==================== HELPER FUNCTIONS ====================
+import time
+from typing import Dict, Any
 
-def is_client_connected_to_router(ip_address: str) -> bool:
-    """Check if a client IP has an active queue in MikroTik"""
+# Simple in-memory cache for router queues to avoid hitting the router API dozens of times concurrently
+QUEUES_CACHE: Dict[int, Dict[str, Any]] = {}
+CACHE_TTL = 15.0  # seconds
+
+def get_router_queues(router_obj) -> list:
+    """Get simple queues from the router, utilizing cache if valid"""
+    now = time.time()
+    cache_entry = QUEUES_CACHE.get(router_obj.id)
+    if cache_entry and (now - cache_entry["timestamp"] < CACHE_TTL):
+        return cache_entry["queues"]
+        
     try:
         connection = routeros_api.RouterOsApiPool(
-            CONFIG["MK_IP"],
-            username=CONFIG["MK_USER"],
-            password=CONFIG["MK_PASS"],
+            router_obj.ip_address.strip(),
+            username=router_obj.usuario.strip(),
+            password=router_obj.password,
             plaintext_login=True,
         )
         api = connection.get_api()
         list_queues = api.get_resource('/queue/simple')
         queues = list_queues.get()
-        
-        # Check if IP has an active queue
-        is_connected = any(ip_address in q.get('target', '') for q in queues)
         connection.disconnect()
-        return is_connected
+        
+        QUEUES_CACHE[router_obj.id] = {
+            "queues": queues,
+            "timestamp": now
+        }
+        return queues
     except Exception as e:
-        logger.error(f"Error checking connection status for {ip_address}: {e}")
+        logger.error(f"Error checking queues for router {router_obj.ip_address}: {e}")
+        # If call fails, fall back to stale cache if available, else empty list
+        if cache_entry:
+            return cache_entry["queues"]
+        return []
+
+
+def is_client_connected_to_router(ip_address: str, router_obj=None) -> bool:
+    """Check if a client IP has an active queue in MikroTik"""
+    if not router_obj:
         return False
+    queues = get_router_queues(router_obj)
+    return any(ip_address in q.get('target', '') for q in queues)
 
 # HTMX endpoint to add a new client, with validation and error handling, returning a modal with success or error message
 @router.post("/clients", response_class=HTMLResponse)
@@ -66,34 +90,38 @@ async def add_client(
     request: Request,
     nombre: str = Form(...),
     ip_address: str = Form(...),
+    router_id: int = Form(None),
     activo: str = Form(None),
 ):
     """Add new host to monitor"""
     is_active = True if activo == "on" else False
     
     db = SessionLocal()
+    from ..models import Router
     
     try:
         # Check if IP already exists
         ip_exists = db.query(Host).filter(Host.ip_address == ip_address).first()
         if ip_exists:
+            routers = db.query(Router).all()
             db.close()
             # Return modal with error message
             return templates.TemplateResponse(request, "modals/modal_add_client.html", {
                 "error": f"La dirección IP {ip_address} ya está siendo monitoreada por {ip_exists.nombre}",
                 "nombre": nombre,
                 "ip_address": ip_address,
-                "activo": activo
+                "router_id": router_id,
+                "activo": activo,
+                "routers": routers
             })
         
-        new_host = Host(nombre=nombre, ip_address=ip_address, activo=is_active)
+        new_host = Host(nombre=nombre, ip_address=ip_address, activo=is_active, router_id=router_id)
         db.add(new_host)
         db.commit()
     except SQLAlchemyError as e:
         db.rollback()
         print(f"Error al guardar: {e}")
     finally:
-        clients_db = db.query(Host).all()
         db.close()
     
     # On success: show confirmation and reload clients
@@ -140,13 +168,14 @@ async def get_client_status(request: Request, client_id: int):
     """Get real-time connection status for a client"""
     db = SessionLocal()
     client = db.query(Host).filter(Host.id == client_id).first()
-    db.close()
     
     if not client:
+        db.close()
         return ""
     
     # Check connection status against MikroTik
-    is_connected = is_client_connected_to_router(client.ip_address)
+    is_connected = is_client_connected_to_router(client.ip_address, client.router)
+    db.close()
     
     if is_connected:
         return f"""
@@ -187,14 +216,17 @@ async def get_client_status(request: Request, client_id: int):
 @router.get("/views/modal_edit_client/{client_id}", response_class=HTMLResponse)
 async def view_modal_edit(request: Request, client_id: int):
     """HTMX fragment: edit host modal form"""
+    from ..models import Router
     db = SessionLocal()
     client = db.query(Host).filter(Host.id == client_id).first()
+    routers = db.query(Router).all()
     db.close()
     
     if not client:
         return templates.TemplateResponse(request, "modals/modal_edit_client.html", {
             "error": "Cliente no encontrado",
-            "client_id": client_id
+            "client_id": client_id,
+            "routers": routers
         })
     
     return templates.TemplateResponse(request, "modals/modal_edit_client.html", {
@@ -202,6 +234,8 @@ async def view_modal_edit(request: Request, client_id: int):
         "nombre": client.nombre,
         "ip_address": client.ip_address,
         "activo": client.activo,
+        "router_id": client.router_id,
+        "routers": routers,
         "error": None
     })
 
@@ -212,14 +246,17 @@ async def update_client(
     client_id: int,
     nombre: str = Form(...),
     ip_address: str = Form(...),
+    router_id: int = Form(None),
     activo: str = Form(None),
 ):
     """Update host information"""
     from sqlalchemy import func, desc, asc
+    from ..models import Router
     
     is_active = True if activo == "on" else False
     
     db = SessionLocal()
+    routers = db.query(Router).all()
     
     try:
         client = db.query(Host).filter(Host.id == client_id).first()
@@ -227,7 +264,8 @@ async def update_client(
             db.close()
             return templates.TemplateResponse(request, "modals/modal_edit_client.html", {
                 "error": "Cliente no encontrado",
-                "client_id": client_id
+                "client_id": client_id,
+                "routers": routers
             })
         
         # Check if new IP is being used by another client
@@ -243,12 +281,15 @@ async def update_client(
                     "client_id": client_id,
                     "nombre": nombre,
                     "ip_address": ip_address,
-                    "activo": activo
+                    "router_id": router_id,
+                    "activo": activo,
+                    "routers": routers
                 })
         
         # Update client
         client.nombre = nombre
         client.ip_address = ip_address
+        client.router_id = router_id
         client.activo = is_active
         db.commit()
         
@@ -284,7 +325,8 @@ async def update_client(
                 'activo': c.activo,
                 'descarga': total_download,
                 'subida': total_upload,
-                'total': total_download + total_upload
+                'total': total_download + total_upload,
+                'router_nombre': c.router.nombre if c.router else 'N/A'
             })
         
         # Apply sorting
@@ -338,29 +380,49 @@ async def update_client(
             "client_id": client_id,
             "nombre": nombre,
             "ip_address": ip_address,
-            "activo": activo
+            "router_id": router_id,
+            "activo": activo,
+            "routers": routers
         })
-
-
-@router.post("/clients/bulk-from-list")
 async def add_bulk_clients_from_list(
     address_list_name: str = Form(...),
+    router_id: int = Form(None),
     activo: str = Form(None),
 ):
     """Add all IPs from an address list as clients"""
     is_active = True if activo == "on" else False
     
     db = SessionLocal()
+    from ..models import Router
     added_count = 0
     skipped_count = 0
     errors = []
     
     try:
+        # Get router info
+        router_obj = None
+        if router_id:
+            router_obj = db.query(Router).filter(Router.id == router_id).first()
+        if not router_obj:
+            router_obj = db.query(Router).first()
+            
+        if not router_obj:
+            db.close()
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "No hay ningún router configurado.",
+                    "added": 0,
+                    "skipped": 0
+                }
+            )
+            
         # Get IPs from the address list
         connection = routeros_api.RouterOsApiPool(
-            CONFIG["MK_IP"],
-            username=CONFIG["MK_USER"],
-            password=CONFIG["MK_PASS"],
+            router_obj.ip_address,
+            username=router_obj.usuario,
+            password=router_obj.password,
             plaintext_login=True,
         )
         api = connection.get_api()
@@ -400,7 +462,7 @@ async def add_bulk_clients_from_list(
                 
                 # Create client with name based on list name and IP
                 client_name = f"{address_list_name} - {ip_address}"
-                new_host = Host(nombre=client_name, ip_address=ip_address, activo=is_active)
+                new_host = Host(nombre=client_name, ip_address=ip_address, activo=is_active, router_id=router_obj.id)
                 db.add(new_host)
                 added_count += 1
                 
@@ -440,7 +502,7 @@ async def add_bulk_clients_from_list(
 
 
 @router.post("/clients/bulk-add")
-async def add_bulk_clients(ips: str = Form(...)):
+async def add_bulk_clients(ips: str = Form(...), router_id: int = Form(None)):
     """Add multiple IPs directly selected by user with optional names from comments"""
     import json
     
@@ -483,7 +545,7 @@ async def add_bulk_clients(ips: str = Form(...)):
                     continue
                 
                 # Create client with name from comment or IP
-                new_host = Host(nombre=nombre, ip_address=ip_address, activo=True)
+                new_host = Host(nombre=nombre, ip_address=ip_address, activo=True, router_id=router_id)
                 db.add(new_host)
                 added_count += 1
                 

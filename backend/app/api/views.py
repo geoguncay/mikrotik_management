@@ -253,7 +253,8 @@ async def view_clients(request: Request, sort_by: str = "nombre", order: str = "
             'activo': client.activo,
             'descarga': total_download,
             'subida': total_upload,
-            'total': total_download + total_upload
+            'total': total_download + total_upload,
+            'router_nombre': client.router.nombre if client.router else 'N/A'
         })
     
     # Apply sorting
@@ -315,19 +316,59 @@ async def view_clients(request: Request, sort_by: str = "nombre", order: str = "
 @router.get("/modal_add_config", response_class=HTMLResponse)
 async def view_modal_add(request: Request):
     """HTMX fragment: add host modal form"""
-    return templates.TemplateResponse(request, "modals/modal_add_client.html")
+    from ..models import Router
+    db = SessionLocal()
+    try:
+        routers = db.query(Router).all()
+        return templates.TemplateResponse(request, "modals/modal_add_client.html", {"routers": routers})
+    finally:
+        db.close()
 
 
 @router.get("/modal_add_client", response_class=HTMLResponse)
 async def view_modal_add_client(request: Request):
     """HTMX fragment: add client modal form (manual)"""
-    return templates.TemplateResponse(request, "modals/modal_add_client.html")
+    from ..models import Router
+    db = SessionLocal()
+    try:
+        routers = db.query(Router).all()
+        return templates.TemplateResponse(request, "modals/modal_add_client.html", {"routers": routers})
+    finally:
+        db.close()
 
 
 @router.get("/modal_add_client_from_list", response_class=HTMLResponse)
 async def view_modal_add_client_from_list(request: Request):
     """HTMX fragment: add client from list modal"""
-    return templates.TemplateResponse(request, "modals/modal_add_client_from_list.html")
+    from ..models import Router
+    db = SessionLocal()
+    try:
+        routers = db.query(Router).all()
+        return templates.TemplateResponse(
+            request,
+            "modals/modal_add_client_from_list.html",
+            {"routers": routers}
+        )
+    finally:
+        db.close()
+
+
+@router.get("/modal_add_router", response_class=HTMLResponse)
+async def view_modal_add_router(request: Request):
+    """HTMX fragment: add router modal form"""
+    return templates.TemplateResponse(request, "modals/add_router.html")
+
+
+@router.get("/modal_edit_router/{router_id}", response_class=HTMLResponse)
+async def view_modal_edit_router(request: Request, router_id: int):
+    """HTMX fragment: edit router modal form"""
+    from ..models import Router
+    db = SessionLocal()
+    try:
+        router_obj = db.query(Router).filter(Router.id == router_id).first()
+        return templates.TemplateResponse(request, "modals/edit_router.html", {"router": router_obj})
+    finally:
+        db.close()
 
 
 @router.get("/existing-ips")
@@ -357,33 +398,84 @@ async def get_existing_ips():
         )
 
 
-@router.get("/configuration", response_class=HTMLResponse)
-async def view_configuration(request: Request):
-    """HTMX fragment: configuration form"""
-    from ..config import CONFIG
+def get_routers_with_stats(db):
+    """Query routers and calculate host counts and traffic statistics for each"""
+    from sqlalchemy import func
+    from ..models import Router, Host, RegistroTrafico
     
-    return templates.TemplateResponse(
-        request,
-        "config.html",
-        {
-            "mk_ip": CONFIG["MK_IP"],
-            "mk_user": CONFIG["MK_USER"],
-            "intervalo_minutos": CONFIG["INTERVALO_MINUTOS"],
-            "message": None,
-        },
-    )
+    routers = db.query(Router).all()
+    for router in routers:
+        router.total_clientes = len(router.hosts)
+        router.activos = sum(1 for h in router.hosts if h.activo)
+        router.inactivos = router.total_clientes - router.activos
+        
+        # Calculate sums for upload and download for all hosts belonging to this router
+        host_ids = [h.id for h in router.hosts]
+        if host_ids:
+            stats = db.query(
+                func.coalesce(func.sum(RegistroTrafico.bytes_descarga), 0).label('descarga'),
+                func.coalesce(func.sum(RegistroTrafico.bytes_subida), 0).label('subida')
+            ).filter(RegistroTrafico.host_id.in_(host_ids)).first()
+            router.total_descarga = stats.descarga or 0
+            router.total_subida = stats.subida or 0
+        else:
+            router.total_descarga = 0
+            router.total_subida = 0
+            
+    return routers
+
+
+@router.get("/router", response_class=HTMLResponse)
+async def view_router(request: Request):
+    """HTMX fragment: configuration form"""
+    db = SessionLocal()
+    try:
+        routers = get_routers_with_stats(db)
+        return templates.TemplateResponse(
+            request,
+            "router.html",
+            {
+                "routers": routers,
+                "message": None,
+            },
+        )
+    finally:
+        db.close()
 
 
 @router.get("/address-lists", response_class=HTMLResponse)
-async def view_address_lists(request: Request):
+async def view_address_lists(request: Request, router_id: int = None):
     """HTMX fragment: Address Lists from MikroTik"""
+    from ..models import Router
+    db = SessionLocal()
     try:
-        logger.info("Fetching Address Lists from MikroTik...")
+        routers = db.query(Router).all()
+        if not routers:
+            return templates.TemplateResponse(
+                request,
+                "address_lists.html",
+                {
+                    "address_lists": [],
+                    "total_lists": 0,
+                    "total_addresses": 0,
+                    "routers": [],
+                    "selected_router_id": None,
+                    "error": "No hay routers configurados. Ve a la sección de Routers para registrar uno."
+                }
+            )
+            
+        selected_router = None
+        if router_id:
+            selected_router = db.query(Router).filter(Router.id == router_id).first()
+        if not selected_router:
+            selected_router = routers[0]
+            
+        logger.info(f"Fetching Address Lists from MikroTik {selected_router.nombre} ({selected_router.ip_address})...")
         
         connection = routeros_api.RouterOsApiPool(
-            CONFIG["MK_IP"],
-            username=CONFIG["MK_USER"],
-            password=CONFIG["MK_PASS"],
+            selected_router.ip_address,
+            username=selected_router.usuario,
+            password=selected_router.password,
             plaintext_login=True,
         )
         api = connection.get_api()
@@ -402,6 +494,8 @@ async def view_address_lists(request: Request):
             list_name = addr.get('list', 'unknown')
             address = addr.get('address', 'N/A')
             disabled = addr.get('disabled', False)
+            if isinstance(disabled, str):
+                disabled = disabled.lower() == 'true'
             comment = addr.get('comment', '')
             
             if list_name not in lists_dict:
@@ -425,12 +519,18 @@ async def view_address_lists(request: Request):
             {
                 "address_lists": lists_display,
                 "total_lists": len(lists_dict),
-                "total_addresses": len(address_lists)
+                "total_addresses": len(address_lists),
+                "routers": routers,
+                "selected_router_id": selected_router.id,
+                "connected": True,
+                "error": None
             }
         )
         
     except Exception as e:
         logger.error(f"Error fetching address lists: {type(e).__name__}: {str(e)}")
+        # Fallback for displaying error but preserving dropdown context
+        fallback_router_id = selected_router.id if 'selected_router' in locals() and selected_router else None
         return templates.TemplateResponse(
             request,
             "address_lists.html",
@@ -438,22 +538,46 @@ async def view_address_lists(request: Request):
                 "address_lists": [],
                 "total_lists": 0,
                 "total_addresses": 0,
-                "error": f"Error al conectar con MikroTik: {str(e)}"
+                "routers": routers if 'routers' in locals() else [],
+                "selected_router_id": fallback_router_id,
+                "connected": False,
+                "error": f"Error al conectar con el router: {str(e)}"
             }
         )
+    finally:
+        db.close()
 
 
 @router.get("/address-lists-summary")
-async def get_address_lists_summary():
+async def get_address_lists_summary(router_id: int = None):
     """API endpoint: Get all address lists with address count and comments for selection"""
     from fastapi.responses import JSONResponse
+    from ..models import Router
+    db = SessionLocal()
     try:
-        logger.info("Fetching Address Lists summary...")
+        router_obj = None
+        if router_id:
+            router_obj = db.query(Router).filter(Router.id == router_id).first()
+        if not router_obj:
+            router_obj = db.query(Router).first()
+            
+        if not router_obj:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "No hay ningún router configurado.",
+                    "lists": [],
+                    "total": 0
+                }
+            )
+            
+        logger.info(f"Fetching Address Lists summary from {router_obj.nombre} ({router_obj.ip_address})...")
         
         connection = routeros_api.RouterOsApiPool(
-            CONFIG["MK_IP"],
-            username=CONFIG["MK_USER"],
-            password=CONFIG["MK_PASS"],
+            router_obj.ip_address,
+            username=router_obj.usuario,
+            password=router_obj.password,
             plaintext_login=True,
         )
         api = connection.get_api()
@@ -508,7 +632,7 @@ async def get_address_lists_summary():
         )
         
     except Exception as e:
-        logger.error(f"Error fetching address lists: {type(e).__name__}: {str(e)}")
+        logger.error(f"Error fetching address lists summary: {type(e).__name__}: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={
@@ -518,3 +642,5 @@ async def get_address_lists_summary():
                 "total": 0
             }
         )
+    finally:
+        db.close()

@@ -113,6 +113,9 @@
                         class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                         Estado</th>
                     <th scope="col"
+                        class="px-3 py-3 sm:px-6 sm:py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Router</th>
+                    <th scope="col"
                         class="hidden sm:table-cell px-3 py-3 sm:px-6 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                         hx-get="/api/views/clients?sort_by=descarga&order={% if sort_by == 'descarga' and order == 'asc' %}desc{% else %}asc{% endif %}&period={{ period }}"
                         hx-target="#main-content" hx-swap="innerHTML">
@@ -180,7 +183,12 @@
                                     <span class="relative inline-flex rounded-full h-3 w-3 bg-gray-500"></span>
                                 </span>
                             </span>
-                            <!--  <span class="text-gray-400 text-xs">Cargando...</span> -->
+                        </span>
+                    </td>
+                    <td class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-left">
+                        <span
+                            class="px-2.5 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-800 border border-blue-100/50">
+                            {{ cliente.router_nombre }}
                         </span>
                     </td>
                     <td class="hidden sm:table-cell px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right">
