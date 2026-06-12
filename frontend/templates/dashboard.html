@@ -6,28 +6,32 @@
 	{% endif %}
 
 	<!-- SECTION: METRICS -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+	<!-- <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
 		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
 			<p class="text-xs uppercase tracking-wide text-gray-500">Hosts registrados</p>
 			<p id="metric-total-hosts" class="text-2xl sm:text-3xl font-bold text-gray-800 mt-2">{{ total_hosts }}</p>
 		</div>
 		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
 			<p class="text-xs uppercase tracking-wide text-gray-500">Hosts activos</p>
-			<p id="metric-hosts-activos" class="text-2xl sm:text-3xl font-bold text-green-700 mt-2">{{ hosts_activos }}</p>
+			<p id="metric-hosts-activos" class="text-2xl sm:text-3xl font-bold text-green-700 mt-2">{{ hosts_activos }}
+			</p>
 		</div>
 		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
 			<p class="text-xs uppercase tracking-wide text-gray-500">Hosts inactivos</p>
-			<p id="metric-hosts-inactivos" class="text-2xl sm:text-3xl font-bold text-amber-700 mt-2">{{ hosts_inactivos }}</p>
+			<p id="metric-hosts-inactivos" class="text-2xl sm:text-3xl font-bold text-amber-700 mt-2">{{ hosts_inactivos
+				}}</p>
 		</div>
 		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
 			<p class="text-xs uppercase tracking-wide text-gray-500">Tráfico (7 días)</p>
-			<p id="metric-traffic-7d" class="text-2xl sm:text-3xl font-bold text-blue-700 mt-2">{{ (total_7d_descarga + total_7d_subida) | format_bytes }}</p>
+			<p id="metric-traffic-7d" class="text-2xl sm:text-3xl font-bold text-blue-700 mt-2">{{ (total_7d_descarga +
+				total_7d_subida) | format_bytes }}</p>
 		</div>
-	</div>
+	</div> -->
 
 	<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
 		<!-- FUTURE CONTAINER -->
-		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5 flex flex-col justify-center items-center min-h-[300px]">
+		<div
+			class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5 flex flex-col justify-center items-center min-h-[300px]">
 			<div class="text-center text-gray-400">
 				<i class="fa-solid fa-hourglass-start text-3xl mb-2 text-blue-500/80 animate-pulse"></i>
 				<p class="text-sm font-semibold text-gray-700">Contenido Próximamente</p>
@@ -35,32 +39,115 @@
 			</div>
 		</div>
 		<!-- GENERAL METRICS DASHBOARD -->
-		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5">
+		<div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5 flex flex-col justify-between">
 			<h3 class="text-base sm:text-lg font-semibold text-gray-800">Resumen General</h3>
-			<div class="mt-4 grid grid-cols-2 gap-3 text-xs sm:text-sm">
-				<div class="border-l-4 border-blue-500 pl-3">
-					<p class="text-xs text-gray-500">Total Clientes</p>
-					<p id="summary-total-clientes" class="text-lg sm:text-xl font-bold text-gray-900">{{ total_hosts }}</p>
+
+			<div class="flex flex-col sm:flex-row gap-6 mt-4 flex-1 justify-around items-stretch">
+				<!-- Chart 1: Clientes -->
+				<div class="flex flex-col items-center justify-center flex-1 py-2 max-w-[200px] mx-auto w-full">
+					<div class="w-full aspect-square relative flex items-center justify-center">
+						<canvas id="chartClients"></canvas>
+						<!-- Absolute Center Text -->
+						<div
+							class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
+							<div class="flex flex-col items-center">
+								<span id="summary-total-clientes"
+									class="text-sm sm:text-base font-extrabold text-gray-900 leading-none">{{
+									total_hosts }}</span>
+								<span
+									class="text-[12px] sm:text-[15px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">Clientes</span>
+							</div>
+							<div class="w-10 border-t border-gray-100 my-1 sm:my-1.5"></div>
+							<div
+								class="flex flex-col items-center text-[12px] sm:text-[15px] font-medium text-gray-500 space-y-0.5">
+								<div class="flex items-center gap-1">
+									<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+									<span>Activos: <strong id="summary-activos" class="font-semibold text-gray-800">{{
+											hosts_activos }}</strong></span>
+								</div>
+								<div class="flex items-center gap-1">
+									<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+									<span>Inactivos: <strong id="summary-inactivos"
+											class="font-semibold text-gray-800">{{ hosts_inactivos }}</strong></span>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
-				<div class="border-l-4 border-green-500 pl-3">
-					<p class="text-xs text-gray-500">Activos</p>
-					<p id="summary-activos" class="text-lg sm:text-xl font-bold text-green-600">{{ hosts_activos }}</p>
+
+				<!-- Separator 1 -->
+				<div class="hidden sm:block w-px bg-gray-100 self-stretch my-2"></div>
+				<div class="block sm:hidden h-px bg-gray-100 w-full my-1"></div>
+
+				<!-- Chart 2: Routers -->
+				<div class="flex flex-col items-center justify-center flex-1 py-2 max-w-[200px] mx-auto w-full">
+					<div class="w-full aspect-square relative flex items-center justify-center">
+						<canvas id="chartRouters"></canvas>
+						<!-- Absolute Center Text -->
+						<div
+							class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
+							<div class="flex flex-col items-center">
+								<span id="summary-total-routers"
+									class="text-sm sm:text-base font-extrabold text-gray-900 leading-none">{{
+									total_routers }}</span>
+								<span
+									class="text-[12px] sm:text-[15px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">Routers</span>
+							</div>
+							<div class="w-10 border-t border-gray-100 my-1 sm:my-1.5"></div>
+							<div
+								class="flex flex-col items-center text-[12px] sm:text-[15px] font-medium text-gray-500 space-y-0.5">
+								<div class="flex items-center gap-1">
+									<span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+									<span>Activos: <strong id="summary-routers-activos"
+											class="font-semibold text-gray-800">{{ routers_activos }}</strong></span>
+								</div>
+								<div class="flex items-center gap-1">
+									<span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+									<span>Inactivos: <strong id="summary-routers-inactivos"
+											class="font-semibold text-gray-800">{{ routers_inactivos }}</strong></span>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
-				<div class="border-l-4 border-amber-500 pl-3">
-					<p class="text-xs text-gray-500">Inactivos</p>
-					<p id="summary-inactivos" class="text-lg sm:text-xl font-bold text-amber-600">{{ hosts_inactivos }}</p>
-				</div>
-				<div class="border-l-4 border-purple-500 pl-3">
-					<p class="text-xs text-gray-500">Descarga</p>
-					<p id="summary-desc" class="text-base sm:text-lg font-bold text-gray-900">{{ total_all_descarga | format_bytes }}</p>
-				</div>
-				<div class="border-l-4 border-cyan-500 pl-3">
-					<p class="text-xs text-gray-500">Subida</p>
-					<p id="summary-subida" class="text-base sm:text-lg font-bold text-gray-900">{{ total_all_subida | format_bytes }}</p>
-				</div>
-				<div class="border-l-4 border-indigo-500 pl-3">
-					<p class="text-xs text-gray-500">Total</p>
-					<p id="summary-total" class="text-base sm:text-lg font-bold text-gray-900">{{ (total_all_descarga + total_all_subida) | format_bytes }}</p>
+
+				<!-- Separator 2 -->
+				<div class="hidden sm:block w-px bg-gray-100 self-stretch my-2"></div>
+				<div class="block sm:hidden h-px bg-gray-100 w-full my-1"></div>
+
+				<!-- Chart 3: Tráfico Total -->
+				<div class="flex flex-col items-center justify-center flex-1 py-2 max-w-[200px] mx-auto w-full">
+					<div class="w-full aspect-square relative flex items-center justify-center">
+						<canvas id="chartTraffic"></canvas>
+						<!-- Absolute Center Text -->
+						<div
+							class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
+							<div class="flex flex-col items-center max-w-full">
+								<span id="summary-total"
+									class="text-[10px] sm:text-xs font-extrabold text-gray-900 leading-none truncate max-w-full"
+									title="{{ (total_all_descarga + total_all_subida) | format_bytes }}">{{
+									(total_all_descarga + total_all_subida) | format_bytes }}</span>
+								<span
+									class="text-[12px] sm:text-[15px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">Tráfico</span>
+							</div>
+							<div class="w-10 border-t border-gray-100 my-1 sm:my-1.5"></div>
+							<div
+								class="flex flex-col items-center text-[12px] sm:text-[15px] font-medium text-gray-500 space-y-0.5 w-full">
+								<div class="flex items-center gap-1 justify-center max-w-full">
+									<span class="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0"></span>
+									<span class="truncate">Desc: <strong id="summary-desc"
+											class="font-semibold text-gray-800">{{ total_all_descarga | format_bytes
+											}}</strong></span>
+								</div>
+								<div class="flex items-center gap-1 justify-center max-w-full">
+									<span class="w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0"></span>
+									<span class="truncate">Sub: <strong id="summary-subida"
+											class="font-semibold text-gray-800">{{ total_all_subida | format_bytes
+											}}</strong></span>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -74,25 +161,33 @@
 			<thead class="bg-gray-50">
 				<tr>
 					<th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Host</th>
-					<th class="hidden sm:table-cell px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Descarga</th>
-					<th class="hidden lg:table-cell px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Subida</th>
+					<th
+						class="hidden sm:table-cell px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
+						Descarga</th>
+					<th
+						class="hidden lg:table-cell px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
+						Subida</th>
 					<th class="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
 				</tr>
 			</thead>
 			<tbody id="top-hosts-tbody" class="bg-white divide-y divide-gray-200">
 				{% if top_hosts %}
-					{% for host in top_hosts %}
-					<tr class="hover:bg-gray-50 transition-colors">
-						<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-gray-900">{{ host.nombre }}</td>
-					<td class="hidden sm:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-right text-gray-700">{{ host.descarga | format_bytes }}</td>
-					<td class="hidden lg:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-right text-gray-700">{{ host.subida | format_bytes }}</td>
-					<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-right font-semibold text-gray-900">{{ host.total | format_bytes }}</td>
-					</tr>
-					{% endfor %}
+				{% for host in top_hosts %}
+				<tr class="hover:bg-gray-50 transition-colors">
+					<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-gray-900">{{ host.nombre }}</td>
+					<td class="hidden sm:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-right text-gray-700">{{
+						host.descarga | format_bytes }}</td>
+					<td class="hidden lg:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-right text-gray-700">{{
+						host.subida | format_bytes }}</td>
+					<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-right font-semibold text-gray-900">{{
+						host.total | format_bytes }}</td>
+				</tr>
+				{% endfor %}
 				{% else %}
-					<tr>
-						<td colspan="4" class="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-gray-500">Todavía no hay registros de tráfico para mostrar.</td>
-					</tr>
+				<tr>
+					<td colspan="4" class="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-gray-500">Todavía no
+						hay registros de tráfico para mostrar.</td>
+				</tr>
 				{% endif %}
 			</tbody>
 		</table>
@@ -100,42 +195,176 @@
 
 
 	<script>
-	// Función para formatear bytes (debe coincidir con la del backend)
-	function formatBytes(bytes) {
-		if (bytes === null || bytes === 0) return "0.0 MB";
-		const mb = bytes / (1024 * 1024);
-		if (mb >= 1024) {
-			const gb = mb / 1024;
-			return gb.toFixed(2) + " GB";
-		} else {
-			return mb.toFixed(2) + " MB";
+		// Función para formatear bytes (debe coincidir con la del backend)
+		function formatBytes(bytes) {
+			if (bytes === null || bytes === 0) return "0.0 MB";
+			const mb = bytes / (1024 * 1024);
+			if (mb >= 1024) {
+				const gb = mb / 1024;
+				return gb.toFixed(2) + " GB";
+			} else {
+				return mb.toFixed(2) + " MB";
+			}
 		}
-	}
 
-	// Actualizar datos del dashboard
-	async function updateDashboardData() {
-		try {
-			const response = await fetch('/api/views/dashboard-data');
-			const data = await response.json();
+		let clientsChart = null;
+		let routersChart = null;
+		let trafficChart = null;
 
-			// Actualizar métricas principales
-			document.getElementById('metric-total-hosts').textContent = data.total_hosts;
-			document.getElementById('metric-hosts-activos').textContent = data.hosts_activos;
-			document.getElementById('metric-hosts-inactivos').textContent = data.hosts_inactivos;
-			document.getElementById('metric-traffic-7d').textContent = formatBytes(data.total_7d_descarga + data.total_7d_subida);
+		function initDashboardCharts(data) {
+			const ctxClients = document.getElementById('chartClients');
+			const ctxRouters = document.getElementById('chartRouters');
+			const ctxTraffic = document.getElementById('chartTraffic');
 
-			// Actualizar resumen general
-			document.getElementById('summary-total-clientes').textContent = data.total_hosts;
-			document.getElementById('summary-activos').textContent = data.hosts_activos;
-			document.getElementById('summary-inactivos').textContent = data.hosts_inactivos;
-			document.getElementById('summary-desc').textContent = formatBytes(data.total_all_descarga);
-			document.getElementById('summary-subida').textContent = formatBytes(data.total_all_subida);
-			document.getElementById('summary-total').textContent = formatBytes(data.total_all_descarga + data.total_all_subida);
+			if (!ctxClients || !ctxRouters || !ctxTraffic || typeof Chart === 'undefined') return;
 
-			// Actualizar tabla de top hosts
-			const tbody = document.getElementById('top-hosts-tbody');
-			if (data.top_hosts.length > 0) {
-				tbody.innerHTML = data.top_hosts.map(host => `
+			if (clientsChart) clientsChart.destroy();
+			if (routersChart) routersChart.destroy();
+			if (trafficChart) trafficChart.destroy();
+
+			clientsChart = new Chart(ctxClients, {
+				type: 'doughnut',
+				data: {
+					labels: ['Activos', 'Inactivos'],
+					datasets: [{
+						data: [data.hosts_activos, data.hosts_inactivos],
+						backgroundColor: ['#10b981', '#f59e0b'],
+						borderColor: '#ffffff',
+						borderWidth: 2,
+						hoverOffset: 4
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: true,
+					plugins: {
+						legend: { display: false },
+						tooltip: {
+							backgroundColor: 'rgba(0, 0, 0, 0.8)',
+							padding: 8,
+							titleFont: { size: 11, weight: 'bold' },
+							bodyFont: { size: 11 },
+							callbacks: {
+								label: function (context) {
+									return ' ' + context.label + ': ' + context.raw;
+								}
+							}
+						}
+					},
+					cutout: '78%'
+				}
+			});
+
+			routersChart = new Chart(ctxRouters, {
+				type: 'doughnut',
+				data: {
+					labels: ['Activos', 'Inactivos'],
+					datasets: [{
+						data: [data.routers_activos || 0, data.routers_inactivos || 0],
+						backgroundColor: ['#3b82f6', '#f87171'],
+						borderColor: '#ffffff',
+						borderWidth: 2,
+						hoverOffset: 4
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: true,
+					plugins: {
+						legend: { display: false },
+						tooltip: {
+							backgroundColor: 'rgba(0, 0, 0, 0.8)',
+							padding: 8,
+							titleFont: { size: 11, weight: 'bold' },
+							bodyFont: { size: 11 },
+							callbacks: {
+								label: function (context) {
+									return ' ' + context.label + ': ' + context.raw;
+								}
+							}
+						}
+					},
+					cutout: '78%'
+				}
+			});
+
+			trafficChart = new Chart(ctxTraffic, {
+				type: 'doughnut',
+				data: {
+					labels: ['Descarga', 'Subida'],
+					datasets: [{
+						data: [data.total_all_descarga, data.total_all_subida],
+						backgroundColor: ['#8b5cf6', '#06b6d4'],
+						borderColor: '#ffffff',
+						borderWidth: 2,
+						hoverOffset: 4
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: true,
+					plugins: {
+						legend: { display: false },
+						tooltip: {
+							backgroundColor: 'rgba(0, 0, 0, 0.8)',
+							padding: 8,
+							titleFont: { size: 11, weight: 'bold' },
+							bodyFont: { size: 11 },
+							callbacks: {
+								label: function (context) {
+									return ' ' + context.label + ': ' + formatBytes(context.raw);
+								}
+							}
+						}
+					},
+					cutout: '78%'
+				}
+			});
+		}
+
+		// Actualizar datos del dashboard
+		async function updateDashboardData() {
+			try {
+				const response = await fetch('/api/views/dashboard-data');
+				const data = await response.json();
+
+				// Actualizar métricas principales
+				document.getElementById('metric-total-hosts').textContent = data.total_hosts;
+				document.getElementById('metric-hosts-activos').textContent = data.hosts_activos;
+				document.getElementById('metric-hosts-inactivos').textContent = data.hosts_inactivos;
+				document.getElementById('metric-traffic-7d').textContent = formatBytes(data.total_7d_descarga + data.total_7d_subida);
+
+				// Actualizar resumen general
+				document.getElementById('summary-total-clientes').textContent = data.total_hosts;
+				document.getElementById('summary-activos').textContent = data.hosts_activos;
+				document.getElementById('summary-inactivos').textContent = data.hosts_inactivos;
+
+				document.getElementById('summary-total-routers').textContent = data.total_routers;
+				document.getElementById('summary-routers-activos').textContent = data.routers_activos;
+				document.getElementById('summary-routers-inactivos').textContent = data.routers_inactivos;
+
+				document.getElementById('summary-desc').textContent = formatBytes(data.total_all_descarga);
+				document.getElementById('summary-subida').textContent = formatBytes(data.total_all_subida);
+				document.getElementById('summary-total').textContent = formatBytes(data.total_all_descarga + data.total_all_subida);
+
+				// Actualizar gráficos
+				if (clientsChart && routersChart && trafficChart) {
+					clientsChart.data.datasets[0].data = [data.hosts_activos, data.hosts_inactivos];
+					clientsChart.update('none');
+
+					routersChart.data.datasets[0].data = [data.routers_activos, data.routers_inactivos];
+					routersChart.update('none');
+
+					trafficChart.data.datasets[0].data = [data.total_all_descarga, data.total_all_subida];
+					trafficChart.update('none');
+				} else {
+					initDashboardCharts(data);
+				}
+
+				// Actualizar tabla de top hosts
+				const tbody = document.getElementById('top-hosts-tbody');
+				if (data.top_hosts.length > 0) {
+					tbody.innerHTML = data.top_hosts.map(host => `
 					<tr class="hover:bg-gray-50 transition-colors">
 						<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-gray-900">${host.nombre}</td>
 						<td class="hidden sm:table-cell px-4 sm:px-6 py-3 text-xs sm:text-sm text-right text-gray-700">${formatBytes(host.descarga)}</td>
@@ -143,15 +372,37 @@
 						<td class="px-4 sm:px-6 py-3 text-xs sm:text-sm text-right font-semibold text-gray-900">${formatBytes(host.total)}</td>
 					</tr>
 				`).join('');
-			} else {
-				tbody.innerHTML = '<tr><td colspan="4" class="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-gray-500">Todavía no hay registros de tráfico para mostrar.</td></tr>';
+				} else {
+					tbody.innerHTML = '<tr><td colspan="4" class="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-gray-500">Todavía no hay registros de tráfico para mostrar.</td></tr>';
+				}
+			} catch (error) {
+				console.error('Error actualizando datos del dashboard:', error);
 			}
-		} catch (error) {
-			console.error('Error actualizando datos del dashboard:', error);
 		}
-	}
 
-	// Actualizar datos cada 10 segundos
-	setInterval(updateDashboardData, 10000);
+		// Actualizar datos cada 10 segundos
+		setInterval(updateDashboardData, 10000);
+
+		// Inicializar con valores del template al cargar
+		setTimeout(() => {
+			const initialData = {
+				hosts_activos: parseInt("{{ hosts_activos }}") || 0,
+				hosts_inactivos: parseInt("{{ hosts_inactivos }}") || 0,
+				total_routers: parseInt("{{ total_routers }}") || 0,
+				routers_activos: parseInt("{{ routers_activos }}") || 0,
+				routers_inactivos: parseInt("{{ routers_inactivos }}") || 0,
+				total_all_descarga: parseInt("{{ total_all_descarga }}") || 0,
+				total_all_subida: parseInt("{{ total_all_subida }}") || 0
+			};
+			initDashboardCharts(initialData);
+		}, 100);
+
+		// También ejecutar después de que HTMX actualice el contenido
+		document.addEventListener('htmx:afterSwap', function () {
+			if (clientsChart) { clientsChart.destroy(); clientsChart = null; }
+			if (routersChart) { routersChart.destroy(); routersChart = null; }
+			if (trafficChart) { trafficChart.destroy(); trafficChart = null; }
+			setTimeout(updateDashboardData, 100);
+		});
 	</script>
 </div>

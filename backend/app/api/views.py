@@ -10,7 +10,7 @@ import routeros_api
 import logging
 
 from ..database import SessionLocal
-from ..models import Host, RegistroTrafico
+from ..models import Router, Host, RegistroTrafico
 from ..config import CONFIG
 
 # Setup logging
@@ -66,6 +66,10 @@ async def view_dashboard(request: Request):
         total_hosts = db.query(Host).count()
         hosts_activos = db.query(Host).filter(Host.activo.is_(True)).count()
         hosts_inactivos = total_hosts - hosts_activos
+
+        total_routers = db.query(Router).count()
+        routers_activos = db.query(Router).filter(Router.activo.is_(True)).count()
+        routers_inactivos = total_routers - routers_activos
 
         ago_24h = datetime.utcnow() - timedelta(hours=24)
         ago_7d = datetime.utcnow() - timedelta(days=7)
@@ -123,6 +127,9 @@ async def view_dashboard(request: Request):
             "total_hosts": total_hosts,
             "hosts_activos": hosts_activos,
             "hosts_inactivos": hosts_inactivos,
+            "total_routers": total_routers,
+            "routers_activos": routers_activos,
+            "routers_inactivos": routers_inactivos,
             "total_24h_descarga": total_24h_download,
             "total_24h_subida": total_24h_upload,
             "total_7d_descarga": total_7d_download,
@@ -143,6 +150,10 @@ async def get_dashboard_data():
         total_hosts = db.query(Host).count()
         hosts_activos = db.query(Host).filter(Host.activo.is_(True)).count()
         hosts_inactivos = total_hosts - hosts_activos
+
+        total_routers = db.query(Router).count()
+        routers_activos = db.query(Router).filter(Router.activo.is_(True)).count()
+        routers_inactivos = total_routers - routers_activos
 
         ago_24h = datetime.utcnow() - timedelta(hours=24)
         ago_7d = datetime.utcnow() - timedelta(days=7)
@@ -195,6 +206,9 @@ async def get_dashboard_data():
             "total_hosts": total_hosts,
             "hosts_activos": hosts_activos,
             "hosts_inactivos": hosts_inactivos,
+            "total_routers": total_routers,
+            "routers_activos": routers_activos,
+            "routers_inactivos": routers_inactivos,
             "total_24h_descarga": total_24h_download,
             "total_24h_subida": total_24h_upload,
             "total_7d_descarga": total_7d_download,
