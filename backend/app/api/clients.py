@@ -34,6 +34,20 @@ if frontend_dir is None:
 
 templates = Jinja2Templates(directory=str(frontend_dir / "templates"))
 
+# Register format_bytes filter (same as views.py and config.py)
+def format_bytes(bytes_value):
+    """Convert bytes to MB or GB based on size"""
+    if bytes_value is None or bytes_value == 0:
+        return "0.0 MB"
+    mb = bytes_value / (1024 * 1024)
+    if mb >= 1024:
+        gb = mb / 1024
+        return f"{gb:.2f} GB"
+    else:
+        return f"{mb:.2f} MB"
+
+templates.env.filters['format_bytes'] = format_bytes
+
 router = APIRouter(prefix="", tags=["Clients"])
 
 
@@ -43,10 +57,12 @@ from typing import Dict, Any
 
 # Simple in-memory cache for router queues to avoid hitting the router API dozens of times concurrently
 QUEUES_CACHE: Dict[int, Dict[str, Any]] = {}
-CACHE_TTL = 15.0  # seconds
+ADDRESS_LISTS_CACHE: Dict[int, Dict[str, Any]] = {}
+CACHE_TTL = 10 # 10 seconds
 
-def get_router_queues(router_obj) -> list:
-    """Get simple queues from the router, utilizing cache if valid"""
+def get_router_queues(router_obj):
+    if not router_obj:
+        return []
     now = time.time()
     cache_entry = QUEUES_CACHE.get(router_obj.id)
     if cache_entry and (now - cache_entry["timestamp"] < CACHE_TTL):
@@ -75,6 +91,173 @@ def get_router_queues(router_obj) -> list:
         if cache_entry:
             return cache_entry["queues"]
         return []
+
+
+def get_router_address_lists(router_obj) -> list:
+    """Fetch address lists for a router, cached for CACHE_TTL seconds"""
+    if not router_obj:
+        return []
+    now = time.time()
+    cache_entry = ADDRESS_LISTS_CACHE.get(router_obj.id)
+    if cache_entry and (now - cache_entry["timestamp"] < CACHE_TTL):
+        return cache_entry["address_lists"]
+        
+    try:
+        connection = routeros_api.RouterOsApiPool(
+            router_obj.ip_address.strip(),
+            username=router_obj.usuario.strip(),
+            password=router_obj.password,
+            plaintext_login=True,
+        )
+        api = connection.get_api()
+        address_lists_resource = api.get_resource('/ip/firewall/address-list')
+        address_lists = address_lists_resource.get()
+        connection.disconnect()
+        
+        ADDRESS_LISTS_CACHE[router_obj.id] = {
+            "address_lists": address_lists,
+            "timestamp": now
+        }
+        return address_lists
+    except Exception as e:
+        logger.error(f"Error checking address lists for router {router_obj.ip_address}: {e}")
+        if cache_entry:
+            return cache_entry["address_lists"]
+        return []
+
+
+def is_client_suspended(ip_address: str, router_obj=None) -> bool:
+    """Check if a client IP is active (disabled=false) in the '1CLIENTES' address list on MikroTik"""
+    if not router_obj:
+        return False
+    address_lists = get_router_address_lists(router_obj)
+    
+    for addr in address_lists:
+        addr_ip = addr.get('address', '')
+        if ip_address == addr_ip:
+            list_name = addr.get('list', '')
+            if list_name == '1CLIENTES':
+                disabled = addr.get('disabled', 'false')
+                if isinstance(disabled, str):
+                    disabled = disabled.lower() == 'true'
+                
+                # If the entry is enabled (disabled=False) in '1CLIENTES', it is suspended
+                if not disabled:
+                    return True
+    return False
+
+
+def sync_client_suspension_on_router(ip_address: str, router_obj=None, is_active: bool = True) -> bool:
+    """Sync client active/suspension status to MikroTik '1CLIENTES' address list.
+       is_active=True means client is active (can navigate), so address list rule is disabled=true.
+       is_active=False means client is suspended, so address list rule is disabled=false.
+    """
+    if not router_obj:
+        return False
+    try:
+        connection = routeros_api.RouterOsApiPool(
+            router_obj.ip_address.strip(),
+            username=router_obj.usuario.strip(),
+            password=router_obj.password,
+            plaintext_login=True,
+        )
+        api = connection.get_api()
+        address_lists_resource = api.get_resource('/ip/firewall/address-list')
+        
+        # Search for existing entry in '1CLIENTES' list
+        all_entries = address_lists_resource.get()
+        existing_entry = next((e for e in all_entries if e.get('list') == '1CLIENTES' and e.get('address') == ip_address), None)
+        
+        disabled_str = 'true' if is_active else 'false'
+        
+        if existing_entry:
+            # Entry exists, update its disabled status if needed
+            entry_id = existing_entry.get('id')
+            current_disabled = existing_entry.get('disabled', 'false')
+            if isinstance(current_disabled, str):
+                current_disabled = current_disabled.lower() == 'true'
+                
+            if current_disabled != is_active:
+                address_lists_resource.set(id=entry_id, disabled=disabled_str)
+                logger.info(f"Updated '1CLIENTES' entry for IP {ip_address} to disabled={disabled_str}")
+        else:
+            # Entry doesn't exist, create it
+            address_lists_resource.add(list='1CLIENTES', address=ip_address, disabled=disabled_str)
+            logger.info(f"Created '1CLIENTES' entry for IP {ip_address} with disabled={disabled_str}")
+            
+        connection.disconnect()
+        # Invalidate cache
+        ADDRESS_LISTS_CACHE.pop(router_obj.id, None)
+        return True
+    except Exception as e:
+        logger.error(f"Error syncing client suspension for IP {ip_address} on router {router_obj.ip_address}: {e}")
+        return False
+
+
+def sync_multiple_clients_suspension_on_router(ips_list: list, router_obj=None, is_active: bool = True) -> bool:
+    """Sync multiple client active/suspension statuses to MikroTik '1CLIENTES' address list in a single connection."""
+    if not router_obj or not ips_list:
+        return False
+    try:
+        connection = routeros_api.RouterOsApiPool(
+            router_obj.ip_address.strip(),
+            username=router_obj.usuario.strip(),
+            password=router_obj.password,
+            plaintext_login=True,
+        )
+        api = connection.get_api()
+        address_lists_resource = api.get_resource('/ip/firewall/address-list')
+        
+        all_entries = address_lists_resource.get()
+        disabled_str = 'true' if is_active else 'false'
+        
+        for ip in ips_list:
+            existing_entry = next((e for e in all_entries if e.get('list') == '1CLIENTES' and e.get('address') == ip), None)
+            if existing_entry:
+                entry_id = existing_entry.get('id')
+                current_disabled = existing_entry.get('disabled', 'false')
+                if isinstance(current_disabled, str):
+                    current_disabled = current_disabled.lower() == 'true'
+                if current_disabled != is_active:
+                    address_lists_resource.set(id=entry_id, disabled=disabled_str)
+            else:
+                address_lists_resource.add(list='1CLIENTES', address=ip, disabled=disabled_str)
+                
+        connection.disconnect()
+        ADDRESS_LISTS_CACHE.pop(router_obj.id, None)
+        return True
+    except Exception as e:
+        logger.error(f"Error bulk syncing client suspensions on router {router_obj.ip_address}: {e}")
+        return False
+
+
+def remove_client_suspension_from_router(ip_address: str, router_obj=None) -> bool:
+    """Remove client IP from MikroTik '1CLIENTES' address list."""
+    if not router_obj:
+        return False
+    try:
+        connection = routeros_api.RouterOsApiPool(
+            router_obj.ip_address.strip(),
+            username=router_obj.usuario.strip(),
+            password=router_obj.password,
+            plaintext_login=True,
+        )
+        api = connection.get_api()
+        address_lists_resource = api.get_resource('/ip/firewall/address-list')
+        
+        all_entries = address_lists_resource.get()
+        existing_entry = next((e for e in all_entries if e.get('list') == '1CLIENTES' and e.get('address') == ip_address), None)
+        
+        if existing_entry:
+            address_lists_resource.remove(id=existing_entry.get('id'))
+            logger.info(f"Removed IP {ip_address} from '1CLIENTES' list")
+            
+        connection.disconnect()
+        ADDRESS_LISTS_CACHE.pop(router_obj.id, None)
+        return True
+    except Exception as e:
+        logger.error(f"Error removing IP {ip_address} from router {router_obj.ip_address}: {e}")
+        return False
 
 
 def is_client_connected_to_router(ip_address: str, router_obj=None) -> bool:
@@ -118,6 +301,12 @@ async def add_client(
         new_host = Host(nombre=nombre, ip_address=ip_address, activo=is_active, router_id=router_id)
         db.add(new_host)
         db.commit()
+        
+        # Sync suspension list on MikroTik
+        if router_id:
+            router_obj = db.query(Router).filter(Router.id == router_id).first()
+            if router_obj:
+                sync_client_suspension_on_router(ip_address, router_obj, is_active)
     except SQLAlchemyError as e:
         db.rollback()
         print(f"Error al guardar: {e}")
@@ -144,15 +333,21 @@ async def add_client(
 
 # HTMX endpoint to delete a client and return empty response to remove the row from the table with hx-swap="outerHTML"
 @router.delete("/clients/{client_id}", response_class=HTMLResponse)
-async def delete_client(request: Request, client_id: int, sort_by: str = "nombre", order: str = "asc", period: str = "daily"):
+async def delete_client(request: Request, client_id: int, sort_by: str = "ip", order: str = "asc", period: str = "daily"):
     """Delete host from monitoring"""
     db = SessionLocal()
     try:
         client = db.query(Host).filter(Host.id == client_id).first()
         if client:
+            ip_address = client.ip_address
+            router_obj = client.router
+            
             db.delete(client)
             db.commit()
             logger.info(f"Cliente {client.nombre} (ID: {client_id}) eliminado")
+            
+            if router_obj:
+                remove_client_suspension_from_router(ip_address, router_obj)
         db.close()
         # Return empty string to remove the row from DOM with HTMX outerHTML swap
         return ""
@@ -173,24 +368,42 @@ async def get_client_status(request: Request, client_id: int):
         db.close()
         return ""
     
-    # Check connection status against MikroTik
+    # Check suspension and connection status against MikroTik
+    is_suspended = is_client_suspended(client.ip_address, client.router)
     is_connected = is_client_connected_to_router(client.ip_address, client.router)
     db.close()
     
-    if is_connected:
+    if is_suspended:
         return f"""
         <td id="status-{client_id}" class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap" 
             hx-get="/api/views/client_status/{client_id}" 
             hx-trigger="every 30s" 
             hx-swap="outerHTML">
-            <span class="inline-flex items-center gap-2">
-                <span class="px-2 py-2 inline-flex rounded-full bg-green-100">
-                    <span class="relative flex h-3 w-3">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            <span class="inline-flex items-center gap-1.5">
+                <span class="px-2 py-2 inline-flex rounded-full bg-amber-100">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
                     </span>
                 </span>
-                <!-- <span class="text-green-700 font-medium text-xs">Conectado</span> -->
+                <span class="text-amber-700 font-medium text-xs">Suspendido</span>
+            </span>
+        </td>
+        """
+    elif is_connected:
+        return f"""
+        <td id="status-{client_id}" class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap" 
+            hx-get="/api/views/client_status/{client_id}" 
+            hx-trigger="every 30s" 
+            hx-swap="outerHTML">
+            <span class="inline-flex items-center gap-1.5">
+                <span class="px-2 py-2 inline-flex rounded-full bg-green-100">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                    </span>
+                </span>
+                <span class="text-green-700 font-medium text-xs">Conectado</span>
             </span>
         </td>
         """
@@ -200,14 +413,14 @@ async def get_client_status(request: Request, client_id: int):
             hx-get="/api/views/client_status/{client_id}" 
             hx-trigger="every 30s" 
             hx-swap="outerHTML">
-            <span class="inline-flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5">
                 <span class="px-2 py-2 inline-flex rounded-full bg-red-100">
-                    <span class="relative flex h-3 w-3">
+                    <span class="relative flex h-2.5 w-2.5">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                     </span>
                 </span>
-                <!-- <span class="text-red-700 font-medium text-xs">Desconectado</span> -->
+                <span class="text-red-700 font-medium text-xs">Desconectado</span>
             </span>
         </td>
         """
@@ -229,18 +442,28 @@ async def view_edit_client(request: Request, client_id: int):
             "routers": routers
         })
     
+    # Determine real-time active state from MikroTik:
+    # A client is "activo" (allowed to navigate) only if it's NOT suspended in 1CLIENTES
+    try:
+        is_susp = is_client_suspended(client.ip_address, client.router)
+        # activo=True means allowed (not suspended), activo=False means suspended
+        activo_real = not is_susp
+    except Exception:
+        # If MikroTik is unreachable, fall back to the database value
+        activo_real = client.activo if client.activo is not None else True
+    
     return templates.TemplateResponse(request, "modals/edit_client.html", {
         "client_id": client_id,
         "nombre": client.nombre,
         "ip_address": client.ip_address,
-        "activo": client.activo,
+        "activo": activo_real,
         "router_id": client.router_id,
         "routers": routers,
         "error": None
     })
 
 
-@router.put("/clients/{client_id}", response_class=HTMLResponse)
+@router.post("/clients/{client_id}/update", response_class=HTMLResponse)
 async def update_client(
     request: Request,
     client_id: int,
@@ -286,6 +509,10 @@ async def update_client(
                     "routers": routers
                 })
         
+        # Keep old values for MikroTik sync
+        old_ip = client.ip_address
+        old_router = client.router
+        
         # Update client
         client.nombre = nombre
         client.ip_address = ip_address
@@ -293,8 +520,21 @@ async def update_client(
         client.activo = is_active
         db.commit()
         
-        # Return updated clients view (default period=daily and sort_by=nombre)
-        sort_by = "nombre"
+        # Sync suspension list on MikroTik
+        new_router = db.query(Router).filter(Router.id == router_id).first()
+        
+        # If router changed, or IP changed, remove from old router/IP list
+        if old_router and (old_router.id != router_id or old_ip != ip_address):
+            remove_client_suspension_from_router(old_ip, old_router)
+        elif old_ip != ip_address and old_router:
+            remove_client_suspension_from_router(old_ip, old_router)
+            
+        # Add or update on new router/IP list
+        if new_router:
+            sync_client_suspension_on_router(ip_address, new_router, is_active)
+        
+        # Return updated clients view (default period=daily and sort_by=ip)
+        sort_by = "ip"
         order = "asc"
         period = "daily"
         
@@ -318,11 +558,23 @@ async def update_client(
             total_download = consumption.total_descarga or 0
             total_upload = consumption.total_subida or 0
             
+            # Check connection and suspension status
+            suspended = is_client_suspended(c.ip_address, c.router)
+            connected = is_client_connected_to_router(c.ip_address, c.router)
+            
+            if suspended:
+                estado_real = "suspendido"
+            elif connected:
+                estado_real = "conectado"
+            else:
+                estado_real = "desconectado"
+            
             clients_with_consumption.append({
                 'id': c.id,
                 'nombre': c.nombre,
                 'ip_address': c.ip_address,
                 'activo': c.activo,
+                'estado_real': estado_real,
                 'descarga': total_download,
                 'subida': total_upload,
                 'total': total_download + total_upload,
@@ -330,11 +582,18 @@ async def update_client(
             })
         
         # Apply sorting
-        clients_with_consumption.sort(key=lambda x: x['nombre'].lower(), reverse=False)
+        import ipaddress
+        def ip_sort_key(x):
+            ip_str = x['ip_address']
+            try:
+                return (0, ipaddress.ip_address(ip_str))
+            except Exception:
+                return (1, ip_str)
+        clients_with_consumption.sort(key=ip_sort_key, reverse=False)
         
         # Get general metrics
-        total_hosts = db.query(Host).count()
-        hosts_activos = db.query(Host).filter(Host.activo.is_(True)).count()
+        total_hosts = len(clients_with_consumption)
+        hosts_activos = sum(1 for c in clients_with_consumption if c['estado_real'] == 'conectado')
         hosts_inactivos = total_hosts - hosts_activos
         
         # Totals for the selected period
@@ -452,6 +711,7 @@ async def add_bulk_clients_from_list(
             )
         
         # Try to add each IP as a client
+        successfully_added_ips = []
         for ip_address in ips_to_add:
             try:
                 # Check if IP already exists
@@ -464,6 +724,7 @@ async def add_bulk_clients_from_list(
                 client_name = f"{address_list_name} - {ip_address}"
                 new_host = Host(nombre=client_name, ip_address=ip_address, activo=is_active, router_id=router_obj.id)
                 db.add(new_host)
+                successfully_added_ips.append(ip_address)
                 added_count += 1
                 
             except Exception as e:
@@ -473,6 +734,10 @@ async def add_bulk_clients_from_list(
         
         db.commit()
         logger.info(f"Agregados {added_count} clientes de la lista '{address_list_name}'")
+        
+        # Sync to '1CLIENTES' address list in bulk
+        if successfully_added_ips and router_obj:
+            sync_multiple_clients_suspension_on_router(successfully_added_ips, router_obj, is_active)
         
         db.close()
         
@@ -528,6 +793,7 @@ async def add_bulk_clients(ips: str = Form(...), router_id: int = Form(None)):
             )
         
         # Try to add each IP as a client
+        successfully_added_ips = []
         for item in ips_list:
             try:
                 # Handle both formats: simple IP string or object with {ip, nombre}
@@ -547,6 +813,7 @@ async def add_bulk_clients(ips: str = Form(...), router_id: int = Form(None)):
                 # Create client with name from comment or IP
                 new_host = Host(nombre=nombre, ip_address=ip_address, activo=True, router_id=router_id)
                 db.add(new_host)
+                successfully_added_ips.append(ip_address)
                 added_count += 1
                 
             except Exception as e:
@@ -556,6 +823,13 @@ async def add_bulk_clients(ips: str = Form(...), router_id: int = Form(None)):
         
         db.commit()
         logger.info(f"Agregados {added_count} clientes en bulk")
+        
+        # Sync to '1CLIENTES' address list in bulk (they are added as active, so is_active=True)
+        if successfully_added_ips and router_id:
+            from ..models import Router
+            router_obj = db.query(Router).filter(Router.id == router_id).first()
+            if router_obj:
+                sync_multiple_clients_suspension_on_router(successfully_added_ips, router_obj, is_active=True)
         
         db.close()
         

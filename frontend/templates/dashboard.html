@@ -328,11 +328,15 @@
 				const response = await fetch('/api/views/dashboard-data');
 				const data = await response.json();
 
-				// Actualizar métricas principales
-				document.getElementById('metric-total-hosts').textContent = data.total_hosts;
-				document.getElementById('metric-hosts-activos').textContent = data.hosts_activos;
-				document.getElementById('metric-hosts-inactivos').textContent = data.hosts_inactivos;
-				document.getElementById('metric-traffic-7d').textContent = formatBytes(data.total_7d_descarga + data.total_7d_subida);
+				// Actualizar métricas principales (si existen en el DOM)
+				const elTotalHosts = document.getElementById('metric-total-hosts');
+				if (elTotalHosts) elTotalHosts.textContent = data.total_hosts;
+				const elHostsActivos = document.getElementById('metric-hosts-activos');
+				if (elHostsActivos) elHostsActivos.textContent = data.hosts_activos;
+				const elHostsInactivos = document.getElementById('metric-hosts-inactivos');
+				if (elHostsInactivos) elHostsInactivos.textContent = data.hosts_inactivos;
+				const elTraffic7d = document.getElementById('metric-traffic-7d');
+				if (elTraffic7d) elTraffic7d.textContent = formatBytes(data.total_7d_descarga + data.total_7d_subida);
 
 				// Actualizar resumen general
 				document.getElementById('summary-total-clientes').textContent = data.total_hosts;

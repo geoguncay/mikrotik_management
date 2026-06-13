@@ -201,17 +201,39 @@
                             {{ cliente.ip_address }}</div>
                     </td>
                     <td id="status-{{ cliente.id }}" class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap"
-                        hx-get="/api/views/client_status/{{ cliente.id }}" hx-trigger="load, every 30s"
+                        hx-get="/api/views/client_status/{{ cliente.id }}" hx-trigger="every 30s"
                         hx-swap="outerHTML">
-                        <span class="inline-flex items-center gap-2">
-                            <span class="px-2 py-2 inline-flex rounded-full bg-gray-100">
-                                <span class="relative flex h-3 w-3">
-                                    <span
-                                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
-                                    <span class="relative inline-flex rounded-full h-3 w-3 bg-gray-500"></span>
+                        {% if cliente.estado_real == 'suspendido' %}
+                        <span class="inline-flex items-center gap-1.5">
+                            <span class="px-2 py-2 inline-flex rounded-full bg-amber-100">
+                                <span class="relative flex h-2.5 w-2.5">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
                                 </span>
                             </span>
+                            <span class="text-amber-700 font-medium text-xs">Suspendido</span>
                         </span>
+                        {% elif cliente.estado_real == 'conectado' %}
+                        <span class="inline-flex items-center gap-1.5">
+                            <span class="px-2 py-2 inline-flex rounded-full bg-green-100">
+                                <span class="relative flex h-2.5 w-2.5">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                                </span>
+                            </span>
+                            <span class="text-green-700 font-medium text-xs">Conectado</span>
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5">
+                            <span class="px-2 py-2 inline-flex rounded-full bg-red-100">
+                                <span class="relative flex h-2.5 w-2.5">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                                </span>
+                            </span>
+                            <span class="text-red-700 font-medium text-xs">Desconectado</span>
+                        </span>
+                        {% endif %}
                     </td>
                     <td class="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-left">
                         <span

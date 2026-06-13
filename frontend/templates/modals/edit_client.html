@@ -3,54 +3,64 @@
     
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden z-50 transform transition-all"
         onClick="event.stopPropagation()">
-        <div class="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-            <h3 class="text-base sm:text-lg font-bold text-gray-800">
-                <i class="fa-solid fa-edit text-blue-500 mr-2"></i> Editar Cliente
+        <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-4 flex justify-between items-center">
+            <h3 class="text-base sm:text-lg font-bold text-white">
+                <i class="fa-solid fa-user-pen mr-2"></i> Editar Cliente
             </h3>
             <button onclick="document.getElementById('modal-container').innerHTML = ''" 
-                    class="text-gray-400 hover:text-gray-600 transition-colors">
+                    class="text-blue-200 hover:text-white transition-colors">
                 <i class="fa-solid fa-xmark text-lg sm:text-xl"></i>
             </button>
         </div>
 
         <div class="px-4 sm:px-6 py-4 space-y-4">
-            <!-- Duplicate IP error message -->
             {% if error %}
-            <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 sm:px-4 py-3 text-xs sm:text-sm animate-shake">
+            <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 sm:px-4 py-3 text-xs sm:text-sm">
                 <div class="flex items-start gap-2">
                     <i class="fa-solid fa-circle-exclamation text-red-600 mt-0.5 flex-shrink-0 text-sm"></i>
                     <div>
-                        <h3 class="font-semibold">IP ya registrada</h3>
+                        <p class="font-semibold">Error</p>
                         <p class="mt-1">{{ error }}</p>
-                        <p class="mt-2 text-red-700">Por favor, ingresa una dirección IP diferente.</p>
                     </div>
                 </div>
             </div>
             {% endif %}
 
-            <form hx-put="/api/clients/{{ cliente_id }}" 
-                hx-target="#main-content" 
+            <form id="edit-client-form-{{ client_id }}"
+                hx-post="/api/clients/{{ client_id }}/update"
+                hx-target="#main-content"
                 hx-swap="innerHTML"
                 class="space-y-4">
-                
+
                 <div>
-                    <label for="nombre_edit" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Nombre del Cliente</label>
-                    <input type="text" name="nombre" id="nombre_edit" required placeholder="Ej: Juan Perez - Casa 1"
+                    <label for="nombre_edit_{{ client_id }}" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                        <i class="fa-solid fa-user text-gray-400 mr-1"></i> Nombre del Cliente
+                    </label>
+                    <input type="text" name="nombre" id="nombre_edit_{{ client_id }}" required
+                        placeholder="Ej: Juan Perez - Casa 1"
                         value="{{ nombre }}"
+                        autocomplete="off"
                         class="w-full px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
                 </div>
 
                 <div>
-                    <label for="ip_address_edit" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Dirección IP</label>
-                    <input type="text" name="ip_address" id="ip_address_edit" required placeholder="Ej: 192.168.88.50"
+                    <label for="ip_address_edit_{{ client_id }}" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                        <i class="fa-solid fa-network-wired text-gray-400 mr-1"></i> Dirección IP
+                    </label>
+                    <input type="text" name="ip_address" id="ip_address_edit_{{ client_id }}" required
+                        placeholder="Ej: 192.168.88.50"
                         value="{{ ip_address }}"
-                        pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$" title="Debe ser una dirección IP válida (ej. 192.168.1.10)"
+                        pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$"
+                        title="Debe ser una dirección IP válida (ej. 192.168.1.10)"
+                        autocomplete="off"
                         class="w-full px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-mono">
                 </div>
 
                 <div>
-                    <label for="router_id_edit" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Router MikroTik</label>
-                    <select name="router_id" id="router_id_edit" required
+                    <label for="router_id_edit_{{ client_id }}" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                        <i class="fa-solid fa-router text-gray-400 mr-1"></i> Router MikroTik
+                    </label>
+                    <select name="router_id" id="router_id_edit_{{ client_id }}" required
                         class="w-full px-3 sm:px-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
                         <option value="" disabled {% if not router_id %}selected{% endif %}>-- Selecciona un Router --</option>
                         {% for r in routers %}
@@ -59,25 +69,89 @@
                     </select>
                 </div>
 
-                <div class="flex items-center mt-4">
-                    <input type="checkbox" name="activo" id="activo_edit" {% if activo %}checked{% endif %}
-                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer">
-                    <label for="activo_edit" class="ml-2 block text-xs sm:text-sm text-gray-700 cursor-pointer">
-                        Cliente activo
+                <!-- Estado del cliente -->
+                <div class="rounded-lg border {% if activo %}border-green-200 bg-green-50{% else %}border-amber-200 bg-amber-50{% endif %} p-3 transition-colors duration-300" id="estado-container-{{ client_id }}">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado en MikroTik</p>
+                        <span id="estado-badge-{{ client_id }}" class="text-xs font-semibold px-2 py-0.5 rounded-full {% if activo %}bg-green-100 text-green-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+                            {% if activo %}● Activo{% else %}● Suspendido{% endif %}
+                        </span>
+                    </div>
+                    <label for="activo_edit_{{ client_id }}" class="flex items-center gap-3 cursor-pointer">
+                        <div class="relative flex items-center">
+                            <input type="checkbox" name="activo" id="activo_edit_{{ client_id }}"
+                                {% if activo %}checked{% endif %}
+                                class="sr-only peer">
+                            <div class="w-11 h-6 bg-amber-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer 
+                                        peer-checked:bg-green-500 transition-colors duration-300"></div>
+                            <div class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full shadow transition-transform duration-300 
+                                        peer-checked:translate-x-5"></div>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-semibold {% if activo %}text-green-700{% else %}text-amber-700{% endif %}" id="activo-label-{{ client_id }}">
+                                {% if activo %}Habilitado — permite navegación{% else %}Suspendido — IP bloqueada{% endif %}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                Controla la dirección <span class="font-mono">{{ ip_address }}</span> en la lista <span class="font-mono font-medium">1CLIENTES</span>
+                            </p>
+                        </div>
                     </label>
                 </div>
 
-                <div class="mt-6 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-gray-100">
+
+                <div class="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-3 border-t border-gray-100">
                     <button type="button" onclick="document.getElementById('modal-container').innerHTML = ''"
-                            class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none transition-colors">
+                            class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                         Cancelar
                     </button>
                     <button type="submit"
-                            class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none transition-colors shadow-sm">
-                        Guardar Cambios
+                            class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios
                     </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+    // Toggle label text, badge, and container color when checkbox state changes
+    (function() {
+        const chk = document.getElementById('activo_edit_{{ client_id }}');
+        const lbl = document.getElementById('activo-label-{{ client_id }}');
+        const badge = document.getElementById('estado-badge-{{ client_id }}');
+        const container = document.getElementById('estado-container-{{ client_id }}');
+
+        if (chk) {
+            chk.addEventListener('change', function() {
+                const isActive = this.checked;
+
+                if (lbl) {
+                    lbl.textContent = isActive ? 'Habilitado — permite navegación' : 'Suspendido — IP bloqueada';
+                    lbl.className = isActive
+                        ? 'text-xs sm:text-sm font-semibold text-green-700'
+                        : 'text-xs sm:text-sm font-semibold text-amber-700';
+                }
+                if (badge) {
+                    badge.textContent = isActive ? '● Activo' : '● Suspendido';
+                    badge.className = isActive
+                        ? 'text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700'
+                        : 'text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700';
+                }
+                if (container) {
+                    container.className = isActive
+                        ? 'rounded-lg border border-green-200 bg-green-50 p-3 transition-colors duration-300'
+                        : 'rounded-lg border border-amber-200 bg-amber-50 p-3 transition-colors duration-300';
+                    container.id = 'estado-container-{{ client_id }}';
+                }
+            });
+        }
+
+        // Auto-focus the name field
+        const nameInput = document.getElementById('nombre_edit_{{ client_id }}');
+        if (nameInput) {
+            setTimeout(() => nameInput.focus(), 150);
+        }
+    })();
+</script>
+

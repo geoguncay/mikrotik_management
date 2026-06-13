@@ -63,8 +63,15 @@ async def view_dashboard(request: Request):
     """HTMX fragment: dashboard with metrics"""
     db = SessionLocal()
     try:
-        total_hosts = db.query(Host).count()
-        hosts_activos = db.query(Host).filter(Host.activo.is_(True)).count()
+        from .clients import is_client_connected_to_router, is_client_suspended
+        all_hosts = db.query(Host).all()
+        total_hosts = len(all_hosts)
+        hosts_activos = 0
+        for host in all_hosts:
+            is_susp = is_client_suspended(host.ip_address, host.router)
+            is_conn = is_client_connected_to_router(host.ip_address, host.router)
+            if is_conn and not is_susp:
+                hosts_activos += 1
         hosts_inactivos = total_hosts - hosts_activos
 
         total_routers = db.query(Router).count()
@@ -147,8 +154,15 @@ async def get_dashboard_data():
     """JSON endpoint: return all dashboard data for dynamic updates"""
     db = SessionLocal()
     try:
-        total_hosts = db.query(Host).count()
-        hosts_activos = db.query(Host).filter(Host.activo.is_(True)).count()
+        from .clients import is_client_connected_to_router, is_client_suspended
+        all_hosts = db.query(Host).all()
+        total_hosts = len(all_hosts)
+        hosts_activos = 0
+        for host in all_hosts:
+            is_susp = is_client_suspended(host.ip_address, host.router)
+            is_conn = is_client_connected_to_router(host.ip_address, host.router)
+            if is_conn and not is_susp:
+                hosts_activos += 1
         hosts_inactivos = total_hosts - hosts_activos
 
         total_routers = db.query(Router).count()
@@ -222,9 +236,10 @@ async def get_dashboard_data():
 
 
 @router.get("/clients", response_class=HTMLResponse)
-async def view_clients(request: Request, sort_by: str = "nombre", order: str = "asc", period: str = "daily"):
+async def view_clients(request: Request, sort_by: str = "ip", order: str = "asc", period: str = "daily"):
     """HTMX fragment: clients table with sorting and time period filtering"""
     from sqlalchemy import func, desc, asc
+    from .clients import is_client_connected_to_router, is_client_suspended
     
     db = SessionLocal()
     clients_db = db.query(Host).all()
@@ -260,11 +275,23 @@ async def view_clients(request: Request, sort_by: str = "nombre", order: str = "
         total_download = consumption.total_descarga or 0
         total_upload = consumption.total_subida or 0
         
+        # Check connection and suspension status
+        suspended = is_client_suspended(client.ip_address, client.router)
+        connected = is_client_connected_to_router(client.ip_address, client.router)
+        
+        if suspended:
+            estado_real = "suspendido"
+        elif connected:
+            estado_real = "conectado"
+        else:
+            estado_real = "desconectado"
+        
         clients_with_consumption.append({
             'id': client.id,
             'nombre': client.nombre,
             'ip_address': client.ip_address,
             'activo': client.activo,
+            'estado_real': estado_real,
             'descarga': total_download,
             'subida': total_upload,
             'total': total_download + total_upload,
@@ -277,9 +304,17 @@ async def view_clients(request: Request, sort_by: str = "nombre", order: str = "
     if sort_by == "nombre":
         clients_with_consumption.sort(key=lambda x: x['nombre'].lower(), reverse=reverse)
     elif sort_by == "ip":
-        clients_with_consumption.sort(key=lambda x: x['ip_address'], reverse=reverse)
+        import ipaddress
+        def ip_sort_key(x):
+            ip_str = x['ip_address']
+            try:
+                return (0, ipaddress.ip_address(ip_str))
+            except Exception:
+                return (1, ip_str)
+        clients_with_consumption.sort(key=ip_sort_key, reverse=reverse)
     elif sort_by == "estado":
-        clients_with_consumption.sort(key=lambda x: x['activo'], reverse=reverse)
+        status_order = {"conectado": 2, "desconectado": 1, "suspendido": 0}
+        clients_with_consumption.sort(key=lambda x: status_order.get(x['estado_real'], 0), reverse=reverse)
     elif sort_by == "router":
         clients_with_consumption.sort(key=lambda x: x['router_nombre'].lower(), reverse=reverse)
     elif sort_by == "descarga":
@@ -290,8 +325,8 @@ async def view_clients(request: Request, sort_by: str = "nombre", order: str = "
         clients_with_consumption.sort(key=lambda x: x['total'], reverse=reverse)
     
     # Get general metrics
-    total_hosts = db.query(Host).count()
-    hosts_activos = db.query(Host).filter(Host.activo.is_(True)).count()
+    total_hosts = len(clients_with_consumption)
+    hosts_activos = sum(1 for c in clients_with_consumption if c['estado_real'] == 'conectado')
     hosts_inactivos = total_hosts - hosts_activos
     
     # Totals for the selected period
